@@ -31,12 +31,14 @@ describe('domain events', () => {
 
   it('does not require Kafka for synchronous operations when disabled', async () => {
     await expect(
-      publishDomainEvent(createDomainEvent('TaskCreated', 'tenant-a', 'user-a', {
-        taskId: 'task-a',
-        projectId: 'project-a',
-        status: 'TODO',
-        priority: 'HIGH',
-      })),
+      publishDomainEvent(
+        createDomainEvent('TaskCreated', 'tenant-a', 'user-a', {
+          taskId: 'task-a',
+          projectId: 'project-a',
+          status: 'TODO',
+          priority: 'HIGH',
+        }),
+      ),
     ).resolves.toBeUndefined();
   });
 

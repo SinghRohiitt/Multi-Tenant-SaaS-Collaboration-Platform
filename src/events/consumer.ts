@@ -52,13 +52,15 @@ export const startDomainEventConsumer = async (): Promise<() => Promise<void>> =
   try {
     await consumer.connect();
     await consumer.subscribe({ topic: config.kafka.topic, fromBeginning: false });
-    void consumer.run({
-      eachMessage: async ({ message }) => {
-        await processDomainEvent(message.value);
-      },
-    }).catch((error: unknown) => {
-      console.error('Kafka consumer stopped unexpectedly', error);
-    });
+    void consumer
+      .run({
+        eachMessage: async ({ message }) => {
+          await processDomainEvent(message.value);
+        },
+      })
+      .catch((error: unknown) => {
+        console.error('Kafka consumer stopped unexpectedly', error);
+      });
   } catch (error) {
     console.error('Kafka consumer startup failed', error);
     await consumer.disconnect().catch(() => undefined);

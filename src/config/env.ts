@@ -14,10 +14,16 @@ const schema = z.object({
     .regex(/^\d+[smhd]$/, 'JWT_ACCESS_EXPIRES_IN must look like 15m or 1h')
     .default('15m'),
   REFRESH_TOKEN_EXPIRES_IN_DAYS: z.coerce.number().int().positive().max(90).default(7),
-  REDIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  REDIS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   REDIS_DEFAULT_TTL_SECONDS: z.coerce.number().int().positive().max(86_400).default(60),
-  KAFKA_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  KAFKA_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   KAFKA_BROKERS: z.string().default('localhost:9092'),
   KAFKA_CLIENT_ID: z.string().min(1).default('collaboration-platform-api'),
   KAFKA_GROUP_ID: z.string().min(1).default('collaboration-platform-cache'),
