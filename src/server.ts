@@ -1,6 +1,13 @@
 import { app } from './app.js';
 import { config } from './config/index.js';
 import { prisma } from './database/prisma.js';
+import { closeKafkaProducer, startDomainEventConsumer } from './events/index.js';
+
+let stopKafkaConsumer: () => Promise<void> = async () => undefined;
+void startDomainEventConsumer().then((stop) => {
+  stopKafkaConsumer = stop;
+});
+
 const server = app.listen(config.port, () => {
   console.info(`API listening on http://localhost:${config.port}${config.apiPrefix}`);
   console.info(`Swagger UI available at http://localhost:${config.port}/docs`);
@@ -8,9 +15,8 @@ const server = app.listen(config.port, () => {
 const shutdown = (signal: string): void => {
   console.info(`${signal} received; shutting down gracefully`);
   server.close(() => {
-    prisma
-      .$disconnect()
-      .catch((error: unknown) => console.error('Prisma disconnect failed', error))
+    Promise.all([stopKafkaConsumer(), closeKafkaProducer(), prisma.$disconnect()])
+      .catch((error: unknown) => console.error('Graceful shutdown failed', error))
       .finally(() => process.exit(0));
   });
 };

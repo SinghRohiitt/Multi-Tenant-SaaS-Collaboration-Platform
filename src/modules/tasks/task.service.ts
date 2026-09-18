@@ -6,6 +6,7 @@ import { AppError } from '../../common/errors/app-error.js';
 import type { TenantContext } from '../../common/tenant/tenant-context.js';
 import { cache, cacheKeys } from '../../cache/redis-cache.js';
 import { prisma } from '../../database/prisma.js';
+import { createDomainEvent, publishDomainEvent } from '../../events/index.js';
 import type { CreateTaskInput, ListTasksInput, UpdateTaskInput } from './task.schemas.js';
 
 const taskSelect = {
@@ -169,6 +170,14 @@ export const createTask = async (
   try {
     const task = await db.create(context.tenantId, projectId, input);
     await cache.invalidateTenant(context.tenantId, 'tasks');
+    await publishDomainEvent(
+      createDomainEvent('TaskCreated', context.tenantId, context.userId, {
+        taskId: task.id,
+        projectId: task.projectId,
+        status: task.status,
+        priority: task.priority,
+      }),
+    );
     return task;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
@@ -281,6 +290,14 @@ export const updateTask = async (
   }
   const updated = await db.update(context.tenantId, taskId, input);
   await cache.invalidateTenant(context.tenantId, 'tasks');
+  await publishDomainEvent(
+    createDomainEvent('TaskUpdated', context.tenantId, context.userId, {
+      taskId: updated.id,
+      projectId: updated.projectId,
+      status: updated.status,
+      priority: updated.priority,
+    }),
+  );
   return updated;
 };
 
@@ -307,6 +324,13 @@ export const assignTask = async (
   }
   const updated = await db.assign(context.tenantId, taskId, assigneeId);
   await cache.invalidateTenant(context.tenantId, 'tasks');
+  await publishDomainEvent(
+    createDomainEvent('TaskAssigned', context.tenantId, context.userId, {
+      taskId: updated.id,
+      projectId: updated.projectId,
+      assigneeId: updated.assigneeId,
+    }),
+  );
   return updated;
 };
 
@@ -325,5 +349,13 @@ export const archiveTask = async (
   }
   const updated = await db.update(context.tenantId, taskId, { status: TaskStatus.ARCHIVED });
   await cache.invalidateTenant(context.tenantId, 'tasks');
+  await publishDomainEvent(
+    createDomainEvent('TaskUpdated', context.tenantId, context.userId, {
+      taskId: updated.id,
+      projectId: updated.projectId,
+      status: updated.status,
+      priority: updated.priority,
+    }),
+  );
   return updated;
 };

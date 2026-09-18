@@ -16,6 +16,12 @@ To enable caching locally, start Redis with `docker compose up -d redis`, set
 `REDIS_ENABLED=true` in `.env`, and keep `REDIS_URL=redis://localhost:6379`.
 Redis is optional; the API continues to use PostgreSQL if it is disabled or unavailable.
 
+To enable domain events, start Kafka with `docker compose up -d kafka`, set
+`KAFKA_ENABLED=true`, and keep `KAFKA_BROKERS=localhost:9092`. The API publishes typed
+user, project, and task events. A separate consumer subscribes to the configured topic
+and invalidates tenant cache entries after relevant events; duplicate deliveries are safe
+because cache invalidation is idempotent.
+
 The liveness endpoint is `GET /api/v1/health`; Swagger UI is at `http://localhost:3000/docs`.
 
 Projects are available under `/api/v1/projects`. Project memberships are managed under

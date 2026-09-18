@@ -6,6 +6,7 @@ import { AppError } from '../../common/errors/app-error.js';
 import type { TenantContext } from '../../common/tenant/tenant-context.js';
 import { cache, cacheKeys } from '../../cache/redis-cache.js';
 import { prisma } from '../../database/prisma.js';
+import { createDomainEvent, publishDomainEvent } from '../../events/index.js';
 import type {
   CreateProjectInput,
   ListProjectsInput,
@@ -128,6 +129,12 @@ export const createProject = async (
     const project = await repository.create(context.tenantId, input);
     await repository.addMember(context.tenantId, project.id, context.userId);
     await cache.invalidateTenant(context.tenantId, 'projects');
+    await publishDomainEvent(
+      createDomainEvent('ProjectCreated', context.tenantId, context.userId, {
+        projectId: project.id,
+        status: project.status,
+      }),
+    );
     return project;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -206,6 +213,12 @@ export const updateProject = async (
   await requireManageAccess(context, authorization, projectId, repository);
   const project = await repository.update(projectId, input);
   await cache.invalidateTenant(context.tenantId, 'projects');
+  await publishDomainEvent(
+    createDomainEvent('ProjectUpdated', context.tenantId, context.userId, {
+      projectId: project.id,
+      status: project.status,
+    }),
+  );
   return project;
 };
 
@@ -219,5 +232,11 @@ export const archiveProject = async (
   await requireManageAccess(context, authorization, projectId, repository);
   const project = await repository.update(projectId, { status: ProjectStatus.ARCHIVED });
   await cache.invalidateTenant(context.tenantId, 'projects');
+  await publishDomainEvent(
+    createDomainEvent('ProjectUpdated', context.tenantId, context.userId, {
+      projectId: project.id,
+      status: project.status,
+    }),
+  );
   return project;
 };

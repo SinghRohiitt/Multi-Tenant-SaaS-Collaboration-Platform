@@ -15,4 +15,11 @@ export const config = {
     url: env.REDIS_URL,
     defaultTtlSeconds: env.REDIS_DEFAULT_TTL_SECONDS,
   },
+  kafka: {
+    enabled: env.KAFKA_ENABLED,
+    brokers: env.KAFKA_BROKERS.split(',').map((broker) => broker.trim()),
+    clientId: env.KAFKA_CLIENT_ID,
+    groupId: env.KAFKA_GROUP_ID,
+    topic: env.KAFKA_TOPIC,
+  },
 } as const;

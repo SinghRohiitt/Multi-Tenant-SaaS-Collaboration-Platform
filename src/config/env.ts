@@ -17,6 +17,11 @@ const schema = z.object({
   REDIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   REDIS_DEFAULT_TTL_SECONDS: z.coerce.number().int().positive().max(86_400).default(60),
+  KAFKA_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  KAFKA_BROKERS: z.string().default('localhost:9092'),
+  KAFKA_CLIENT_ID: z.string().min(1).default('collaboration-platform-api'),
+  KAFKA_GROUP_ID: z.string().min(1).default('collaboration-platform-cache'),
+  KAFKA_TOPIC: z.string().min(1).default('collaboration.domain-events'),
 });
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {

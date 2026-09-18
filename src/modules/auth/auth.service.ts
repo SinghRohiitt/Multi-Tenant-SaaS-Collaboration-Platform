@@ -4,6 +4,7 @@ import { AppError } from '../../common/errors/app-error.js';
 import { assignRole } from '../../common/authorization/rbac.service.js';
 import { RoleName } from '../../common/authorization/rbac.js';
 import { prisma } from '../../database/prisma.js';
+import { createDomainEvent, publishDomainEvent } from '../../events/index.js';
 import { comparePassword, hashPassword } from './password.js';
 import {
   createRefreshToken,
@@ -57,6 +58,9 @@ export const register = async (input: RegisterInput) => {
       select: publicUser,
     });
     await assignRole(user.id, user.tenantId, RoleName.MEMBER);
+    await publishDomainEvent(
+      createDomainEvent('UserCreated', user.tenantId, user.id, { userId: user.id }),
+    );
     return { user, ...(await createSession(user)) };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
