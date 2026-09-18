@@ -1,6 +1,8 @@
 import { Prisma, UserStatus } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { assignRole } from '../../common/authorization/rbac.service.js';
+import { RoleName } from '../../common/authorization/rbac.js';
 import { prisma } from '../../database/prisma.js';
 import { comparePassword, hashPassword } from './password.js';
 import {
@@ -54,6 +56,7 @@ export const register = async (input: RegisterInput) => {
       },
       select: publicUser,
     });
+    await assignRole(user.id, user.tenantId, RoleName.MEMBER);
     return { user, ...(await createSession(user)) };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

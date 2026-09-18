@@ -1,7 +1,9 @@
 import { Router } from 'express';
 
+import { authorize, Roles } from '../../common/authorization/authorization.middleware.js';
+import { RoleName } from '../../common/authorization/rbac.js';
 import { validate } from '../../common/middleware/validate.js';
-import { authenticate, getCurrentUser } from './auth.middleware.js';
+import { getCurrentUser } from './auth.middleware.js';
 import { loginSchema, refreshSchema, registerSchema } from './auth.schemas.js';
 import * as authService from './auth.service.js';
 
@@ -27,6 +29,8 @@ authRouter.post('/logout', validate(refreshSchema), async (request, response) =>
   response.status(204).send();
 });
 
-authRouter.get('/me', authenticate, (request, response) => {
+const currentUserHandler = Roles(...Object.values(RoleName))((request, response) => {
   response.status(200).json({ success: true, data: getCurrentUser(request) });
 });
+
+authRouter.get('/me', ...authorize(currentUserHandler));

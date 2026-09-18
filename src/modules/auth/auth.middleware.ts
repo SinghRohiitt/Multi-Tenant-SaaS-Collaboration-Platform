@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { createTenantContext } from '../../common/tenant/tenant-context.js';
 import { findActiveUser } from './auth.service.js';
 import { verifyAccessToken } from './tokens.js';
 
@@ -24,6 +25,7 @@ export const authenticate = async (
     const user = await findActiveUser(payload.sub, payload.tenantId);
     if (!user) throw new AppError(401, 'Authentication is required');
     request.currentUser = user;
+    request.tenantContext = createTenantContext(user);
     next();
   } catch (error) {
     next(error instanceof AppError ? error : new AppError(401, 'Invalid or expired access token'));
