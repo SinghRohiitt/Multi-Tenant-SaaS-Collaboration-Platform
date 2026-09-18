@@ -10,4 +10,9 @@ export const config = {
     accessExpiresIn: env.JWT_ACCESS_EXPIRES_IN,
     refreshExpiresInDays: env.REFRESH_TOKEN_EXPIRES_IN_DAYS,
   },
+  redis: {
+    enabled: env.REDIS_ENABLED,
+    url: env.REDIS_URL,
+    defaultTtlSeconds: env.REDIS_DEFAULT_TTL_SECONDS,
+  },
 } as const;

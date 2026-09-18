@@ -4,6 +4,7 @@ import type { AuthorizationContext } from '../../common/authorization/authorizat
 import { Permission, RoleName } from '../../common/authorization/rbac.js';
 import { AppError } from '../../common/errors/app-error.js';
 import type { TenantContext } from '../../common/tenant/tenant-context.js';
+import { cache, cacheKeys } from '../../cache/redis-cache.js';
 import { prisma } from '../../database/prisma.js';
 import type { AddProjectMemberInput, ListProjectMembersInput } from './member.schemas.js';
 
@@ -17,6 +18,10 @@ const memberSelect = {
 } satisfies Prisma.ProjectMemberSelect;
 
 export type ProjectMemberResponse = Prisma.ProjectMemberGetPayload<{ select: typeof memberSelect }>;
+export type ProjectMemberListResponse = {
+  data: ProjectMemberResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
 
 export type ProjectMemberRepository = {
   projectExists: (tenantId: string, projectId: string) => Promise<boolean>;
@@ -123,7 +128,10 @@ export const addMember = async (
     throw new AppError(409, 'User is already a project member');
   }
   try {
-    return await db.create(context.tenantId, projectId, input.userId);
+    const created = await db.create(context.tenantId, projectId, input.userId);
+    await cache.invalidateTenant(context.tenantId, 'members');
+    await cache.invalidateTenant(context.tenantId, 'projects');
+    return created;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       throw new AppError(409, 'User is already a project member');
@@ -144,6 +152,8 @@ export const removeMember = async (
   if (!(await db.isMember(context.tenantId, projectId, userId)))
     throw new AppError(404, 'Project member not found');
   await db.remove(context.tenantId, projectId, userId);
+  await cache.invalidateTenant(context.tenantId, 'members');
+  await cache.invalidateTenant(context.tenantId, 'projects');
 };
 
 export const listMembers = async (
@@ -152,15 +162,18 @@ export const listMembers = async (
   projectId: string,
   input: ListProjectMembersInput,
   db: ProjectMemberRepository = repository,
-) => {
+): Promise<ProjectMemberListResponse> => {
   await requireProject(context, projectId, db);
   await requireAccess(context, authorization, projectId, db, false);
   const skip = (input.page - 1) * input.limit;
+  const cacheKey = cacheKeys.members(context.tenantId, context.userId, projectId, input);
+  const cached = await cache.get<ProjectMemberListResponse>(cacheKey);
+  if (cached) return cached;
   const [data, total] = await Promise.all([
     db.list(context.tenantId, projectId, skip, input.limit),
     db.count(context.tenantId, projectId),
   ]);
-  return {
+  const result = {
     data,
     meta: {
       page: input.page,
@@ -169,6 +182,8 @@ export const listMembers = async (
       totalPages: Math.ceil(total / input.limit),
     },
   };
+  await cache.set(cacheKey, result);
+  return result;
 };
 
 export const getMember = async (
@@ -180,7 +195,11 @@ export const getMember = async (
 ): Promise<ProjectMemberResponse> => {
   await requireProject(context, projectId, db);
   await requireAccess(context, authorization, projectId, db, false);
+  const cacheKey = cacheKeys.member(context.tenantId, context.userId, projectId, userId);
+  const cached = await cache.get<ProjectMemberResponse>(cacheKey);
+  if (cached) return cached;
   const member = await db.find(context.tenantId, projectId, userId);
   if (!member) throw new AppError(404, 'Project member not found');
+  await cache.set(cacheKey, member);
   return member;
 };

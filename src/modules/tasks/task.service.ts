@@ -4,6 +4,7 @@ import type { AuthorizationContext } from '../../common/authorization/authorizat
 import { Permission, RoleName } from '../../common/authorization/rbac.js';
 import { AppError } from '../../common/errors/app-error.js';
 import type { TenantContext } from '../../common/tenant/tenant-context.js';
+import { cache, cacheKeys } from '../../cache/redis-cache.js';
 import { prisma } from '../../database/prisma.js';
 import type { CreateTaskInput, ListTasksInput, UpdateTaskInput } from './task.schemas.js';
 
@@ -23,6 +24,10 @@ const taskSelect = {
 } satisfies Prisma.TaskSelect;
 
 export type TaskResponse = Prisma.TaskGetPayload<{ select: typeof taskSelect }>;
+export type TaskListResponse = {
+  data: TaskResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
 
 export type TaskRepository = {
   projectExists: (tenantId: string, projectId: string) => Promise<boolean>;
@@ -162,7 +167,9 @@ export const createTask = async (
     throw new AppError(404, 'Assignee is not a member of this project');
   }
   try {
-    return await db.create(context.tenantId, projectId, input);
+    const task = await db.create(context.tenantId, projectId, input);
+    await cache.invalidateTenant(context.tenantId, 'tasks');
+    return task;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
       throw new AppError(400, 'Task references an invalid project or assignee');
@@ -177,9 +184,12 @@ export const listTasks = async (
   projectId: string,
   input: ListTasksInput,
   db: TaskRepository = repository,
-) => {
+): Promise<TaskListResponse> => {
   await requireProject(context, projectId, db);
   await requireProjectTaskAccess(context, authorization, projectId, db);
+  const cacheKey = cacheKeys.tasks(context.tenantId, context.userId, projectId, input);
+  const cached = await cache.get<TaskListResponse>(cacheKey);
+  if (cached) return cached;
   const memberOnly =
     !isAdmin(authorization) &&
     !has(authorization, Permission.TASK_UPDATE) &&
@@ -202,7 +212,7 @@ export const listTasks = async (
   };
   const skip = (input.page - 1) * input.limit;
   const [data, total] = await Promise.all([db.list(where, skip, input.limit), db.count(where)]);
-  return {
+  const result = {
     data,
     meta: {
       page: input.page,
@@ -211,6 +221,8 @@ export const listTasks = async (
       totalPages: Math.ceil(total / input.limit),
     },
   };
+  await cache.set(cacheKey, result);
+  return result;
 };
 
 export const getTask = async (
@@ -219,6 +231,19 @@ export const getTask = async (
   taskId: string,
   db: TaskRepository = repository,
 ): Promise<TaskResponse> => {
+  const cacheKey = cacheKeys.task(context.tenantId, context.userId, taskId);
+  const cached = await cache.get<TaskResponse>(cacheKey);
+  if (cached) {
+    await requireProjectTaskAccess(context, authorization, cached.projectId, db);
+    if (
+      !isAdmin(authorization) &&
+      !has(authorization, Permission.TASK_UPDATE) &&
+      cached.assigneeId !== context.userId
+    ) {
+      throw new AppError(403, 'You cannot access this task');
+    }
+    return cached;
+  }
   const task = await db.find(context.tenantId, taskId);
   if (!task) throw new AppError(404, 'Task not found');
   await requireProjectTaskAccess(context, authorization, task.projectId, db);
@@ -229,6 +254,7 @@ export const getTask = async (
   ) {
     throw new AppError(403, 'You cannot access this task');
   }
+  await cache.set(cacheKey, task);
   return task;
 };
 
@@ -253,7 +279,9 @@ export const updateTask = async (
   } else if (!isAdmin(authorization)) {
     await requireProjectMember(context, task.projectId, db);
   }
-  return db.update(context.tenantId, taskId, input);
+  const updated = await db.update(context.tenantId, taskId, input);
+  await cache.invalidateTenant(context.tenantId, 'tasks');
+  return updated;
 };
 
 export const assignTask = async (
@@ -277,7 +305,9 @@ export const assignTask = async (
   if (assigneeId && !(await db.projectMember(context.tenantId, task.projectId, assigneeId))) {
     throw new AppError(404, 'Assignee is not a member of this project');
   }
-  return db.assign(context.tenantId, taskId, assigneeId);
+  const updated = await db.assign(context.tenantId, taskId, assigneeId);
+  await cache.invalidateTenant(context.tenantId, 'tasks');
+  return updated;
 };
 
 export const archiveTask = async (
@@ -293,5 +323,7 @@ export const archiveTask = async (
       throw new AppError(403, 'You cannot archive tasks');
     await requireProjectMember(context, task.projectId, db);
   }
-  return db.update(context.tenantId, taskId, { status: TaskStatus.ARCHIVED });
+  const updated = await db.update(context.tenantId, taskId, { status: TaskStatus.ARCHIVED });
+  await cache.invalidateTenant(context.tenantId, 'tasks');
+  return updated;
 };

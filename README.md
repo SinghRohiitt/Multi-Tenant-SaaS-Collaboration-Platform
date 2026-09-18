@@ -4,13 +4,17 @@ Express + TypeScript API foundation using PostgreSQL and Prisma.
 
 ## Setup
 
-Prerequisites: Node.js 20+ and PostgreSQL 14+.
+Prerequisites: Node.js 20+, PostgreSQL 14+, and Docker Desktop for the optional Redis cache.
 
 1. Install packages: `npm install`
 2. Create local configuration: `Copy-Item .env.example .env` (PowerShell)
 3. Replace the placeholder database credentials in `.env` and create that database.
 4. Create and apply the initial schema: `npm run prisma:migrate:dev -- --name init`
 5. Start development: `npm run dev`
+
+To enable caching locally, start Redis with `docker compose up -d redis`, set
+`REDIS_ENABLED=true` in `.env`, and keep `REDIS_URL=redis://localhost:6379`.
+Redis is optional; the API continues to use PostgreSQL if it is disabled or unavailable.
 
 The liveness endpoint is `GET /api/v1/health`; Swagger UI is at `http://localhost:3000/docs`.
 

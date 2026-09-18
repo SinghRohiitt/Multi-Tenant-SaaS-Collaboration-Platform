@@ -4,6 +4,7 @@ import type { AuthorizationContext } from '../../common/authorization/authorizat
 import { Permission, RoleName } from '../../common/authorization/rbac.js';
 import { AppError } from '../../common/errors/app-error.js';
 import type { TenantContext } from '../../common/tenant/tenant-context.js';
+import { cache, cacheKeys } from '../../cache/redis-cache.js';
 import { prisma } from '../../database/prisma.js';
 import type {
   CreateProjectInput,
@@ -23,6 +24,10 @@ const projectSelect = {
 } satisfies Prisma.ProjectSelect;
 
 export type ProjectResponse = Prisma.ProjectGetPayload<{ select: typeof projectSelect }>;
+export type ProjectListResponse = {
+  data: ProjectResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
 
 export type ProjectRepository = {
   create: (tenantId: string, input: CreateProjectInput) => Promise<ProjectResponse>;
@@ -122,6 +127,7 @@ export const createProject = async (
   try {
     const project = await repository.create(context.tenantId, input);
     await repository.addMember(context.tenantId, project.id, context.userId);
+    await cache.invalidateTenant(context.tenantId, 'projects');
     return project;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -136,7 +142,10 @@ export const listProjects = async (
   authorization: AuthorizationContext,
   input: ListProjectsInput,
   repository: ProjectRepository = prismaRepository,
-) => {
+): Promise<ProjectListResponse> => {
+  const cacheKey = cacheKeys.projects(context.tenantId, context.userId, input);
+  const cached = await cache.get<ProjectListResponse>(cacheKey);
+  if (cached) return cached;
   const where: Prisma.ProjectWhereInput = {
     tenantId: context.tenantId,
     ...(input.status ? { status: input.status } : {}),
@@ -155,7 +164,7 @@ export const listProjects = async (
     repository.list(where, skip, input.limit),
     repository.count(where),
   ]);
-  return {
+  const result = {
     data,
     meta: {
       page: input.page,
@@ -164,6 +173,8 @@ export const listProjects = async (
       totalPages: Math.ceil(total / input.limit),
     },
   };
+  await cache.set(cacheKey, result);
+  return result;
 };
 
 export const getProject = async (
@@ -172,8 +183,15 @@ export const getProject = async (
   projectId: string,
   repository: ProjectRepository = prismaRepository,
 ): Promise<ProjectResponse> => {
+  const cacheKey = cacheKeys.project(context.tenantId, context.userId, projectId);
+  const cached = await cache.get<ProjectResponse>(cacheKey);
+  if (cached) {
+    await requireViewAccess(context, authorization, projectId, repository);
+    return cached;
+  }
   const project = await requireProject(context, projectId, repository);
   await requireViewAccess(context, authorization, projectId, repository);
+  await cache.set(cacheKey, project);
   return project;
 };
 
@@ -186,7 +204,9 @@ export const updateProject = async (
 ): Promise<ProjectResponse> => {
   await requireProject(context, projectId, repository);
   await requireManageAccess(context, authorization, projectId, repository);
-  return repository.update(projectId, input);
+  const project = await repository.update(projectId, input);
+  await cache.invalidateTenant(context.tenantId, 'projects');
+  return project;
 };
 
 export const archiveProject = async (
@@ -197,5 +217,7 @@ export const archiveProject = async (
 ): Promise<ProjectResponse> => {
   await requireProject(context, projectId, repository);
   await requireManageAccess(context, authorization, projectId, repository);
-  return repository.update(projectId, { status: ProjectStatus.ARCHIVED });
+  const project = await repository.update(projectId, { status: ProjectStatus.ARCHIVED });
+  await cache.invalidateTenant(context.tenantId, 'projects');
+  return project;
 };
