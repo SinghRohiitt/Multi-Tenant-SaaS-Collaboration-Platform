@@ -1,4 +1,4 @@
-import { ProjectStatus } from '@prisma/client';
+import { Prisma, ProjectStatus } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Permission, RoleName, rolePermissions } from '../src/common/authorization/rbac.js';
@@ -93,6 +93,30 @@ describe('project service', () => {
       statusCode: 404,
     });
     expect(db.findByTenant).toHaveBeenCalledWith('tenant-a', 'tenant-b-project');
+  });
+
+  it('returns not found when updating a nonexistent project', async () => {
+    const db = repository({ findByTenant: vi.fn().mockResolvedValue(null) });
+
+    await expect(
+      updateProject(tenantA, admin, 'missing-project', { name: 'Renamed' }, db),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('maps duplicate project keys to a conflict', async () => {
+    const duplicate = new Prisma.PrismaClientKnownRequestError('duplicate', {
+      code: 'P2002',
+      clientVersion: 'test',
+    });
+    const db = repository({ create: vi.fn().mockRejectedValue(duplicate) });
+
+    await expect(createProject(tenantA, { key: 'ALPHA', name: 'Alpha' }, db)).rejects.toMatchObject(
+      {
+        statusCode: 409,
+      },
+    );
+    expect(db.addMember).not.toHaveBeenCalled();
   });
 
   it('applies pagination, status, search, and membership filtering to project lists', async () => {

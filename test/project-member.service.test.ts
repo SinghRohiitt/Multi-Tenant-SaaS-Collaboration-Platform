@@ -96,6 +96,15 @@ describe('project member service', () => {
     });
   });
 
+  it('returns not found for a nonexistent project member', async () => {
+    const db = repository({ find: vi.fn().mockResolvedValue(null) });
+
+    await expect(getMember(tenantA, admin, 'project-a', 'missing-user', db)).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    expect(db.find).toHaveBeenCalledWith('tenant-a', 'project-a', 'missing-user');
+  });
+
   it('rejects a manager who is not a member of the project', async () => {
     const db = repository({ isMember: vi.fn().mockResolvedValue(false) });
 

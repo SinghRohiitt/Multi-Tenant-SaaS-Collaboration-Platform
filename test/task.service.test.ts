@@ -143,6 +143,30 @@ describe('task service', () => {
     });
   });
 
+  it('rejects task creation with an assignee outside the project membership', async () => {
+    const db = repository({
+      projectMember: vi
+        .fn()
+        .mockImplementation((_tenantId, _projectId, userId) =>
+          Promise.resolve(userId === 'user-a'),
+        ),
+    });
+
+    await expect(
+      createTask(tenantA, manager, 'project-a', { title: 'Task', assigneeId: 'user-b' }, db),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(db.create).not.toHaveBeenCalled();
+  });
+
+  it('returns not found when updating a nonexistent task', async () => {
+    const db = repository({ find: vi.fn().mockResolvedValue(null) });
+
+    await expect(
+      updateTask(tenantA, manager, 'missing-task', { status: TaskStatus.DONE }, db),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
   it('archives a task and supports explicit assignment', async () => {
     const db = repository();
 

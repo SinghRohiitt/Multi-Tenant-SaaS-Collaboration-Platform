@@ -108,4 +108,23 @@ describe('tenant-aware authorization policies', () => {
       },
     });
   });
+
+  it('rejects a member without project-management permission', async () => {
+    const db = client({ projectId: 'project-a' });
+
+    await expect(
+      assertCanManageAssignedProject(tenantA, member, 'project-a', db),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(db.projectMember.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member without task-update permission', async () => {
+    const db = client(null, { id: 'task-a' });
+    const viewer: AuthorizationContext = { roles: [], permissions: [] };
+
+    await expect(assertCanUpdateTask(tenantA, viewer, 'task-a', db)).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(db.task.findFirst).not.toHaveBeenCalled();
+  });
 });
