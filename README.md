@@ -2,25 +2,73 @@
 
 Express + TypeScript API foundation using PostgreSQL and Prisma.
 
-## Setup
+## Prerequisites
 
-Prerequisites: Node.js 20+, PostgreSQL 14+, and Docker Desktop for the optional Redis cache.
+- Docker Desktop with Docker Compose v2
+- Node.js 20+ for running commands directly on the host
 
-1. Install packages: `npm install`
-2. Create local configuration: `Copy-Item .env.example .env` (PowerShell)
-3. Replace the placeholder database credentials in `.env` and create that database.
-4. Create and apply the initial schema: `npm run prisma:migrate:dev -- --name init`
-5. Start development: `npm run dev`
+## Environment Setup
 
-To enable caching locally, start Redis with `docker compose up -d redis`, set
-`REDIS_ENABLED=true` in `.env`, and keep `REDIS_URL=redis://localhost:6379`.
-Redis is optional; the API continues to use PostgreSQL if it is disabled or unavailable.
+Copy the safe template and change the local placeholder values as needed:
 
-To enable domain events, start Kafka with `docker compose up -d kafka`, set
-`KAFKA_ENABLED=true`, and keep `KAFKA_BROKERS=localhost:9092`. The API publishes typed
-user, project, and task events. A separate consumer subscribes to the configured topic
-and invalidates tenant cache entries after relevant events; duplicate deliveries are safe
-because cache invalidation is idempotent.
+```powershell
+Copy-Item .env.example .env
+```
+
+The Compose stack reads PostgreSQL credentials from `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, and `POSTGRES_DB`. Do not commit `.env` or real credentials.
+
+## Docker Startup
+
+Build and start PostgreSQL, Redis, Kafka, and the application:
+
+```powershell
+docker compose up --build
+```
+
+The application waits for healthy dependencies, exposes the API on
+`http://localhost:3000`, and enables Redis and Kafka using their Docker service names.
+Stop the stack with `docker compose down`; add `-v` when you also want to remove the
+local PostgreSQL data volume.
+
+## Database Migration
+
+The application container runs committed migrations automatically before development
+startup. To run migrations separately:
+
+```powershell
+docker compose run --rm app npm run prisma:migrate:deploy
+```
+
+For a new migration while developing locally, run the API and Prisma CLI on the host:
+
+```powershell
+npm install
+npm run prisma:migrate:dev -- --name describe_change
+```
+
+## Application Startup
+
+Docker startup is the recommended local workflow:
+
+```powershell
+docker compose up --build
+```
+
+To run only the API on the host, set `DATABASE_URL` to a reachable PostgreSQL instance,
+start the optional dependencies, and run `npm run dev`.
+
+## API Documentation
+
+- Health: `GET http://localhost:3000/api/v1/health`
+- Swagger UI: `http://localhost:3000/docs`
+- Projects: `/api/v1/projects`
+- Project members: `/api/v1/projects/:projectId/members`
+- Tasks: `/api/v1/projects/:projectId/tasks`
+
+The API publishes typed user, project, and task domain events to Kafka. The separate
+consumer invalidates tenant cache entries for relevant events; duplicate deliveries are
+safe because cache invalidation is idempotent.
 
 The liveness endpoint is `GET /api/v1/health`; Swagger UI is at `http://localhost:3000/docs`.
 
@@ -39,6 +87,17 @@ assignment, and archiving use `/api/v1/tasks/:id`.
 - `npm run prisma:migrate:dev` — create and apply development migrations
 - `npm run prisma:migrate:deploy` — apply committed migrations
 - `npm run prisma:studio` — browse the database locally
+- `docker compose logs -f app` — follow application logs
+- `docker compose down` — stop local services
+
+## Test Commands
+
+```powershell
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
 
 ## Layout
 
