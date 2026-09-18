@@ -68,6 +68,7 @@ export const getTenantProjectMember = async (
   requireResource(
     await client.projectMember.findFirst({
       where: {
+        tenantId: context.tenantId,
         projectId,
         userId,
         project: { tenantId: context.tenantId },

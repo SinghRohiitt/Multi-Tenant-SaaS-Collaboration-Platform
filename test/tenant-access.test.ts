@@ -57,6 +57,7 @@ describe('tenant-scoped access', () => {
 
     expect(client.projectMember.findFirst).toHaveBeenCalledWith({
       where: {
+        tenantId: 'tenant-a',
         projectId: 'tenant-b-project',
         userId: 'tenant-b-user',
         project: { tenantId: 'tenant-a' },

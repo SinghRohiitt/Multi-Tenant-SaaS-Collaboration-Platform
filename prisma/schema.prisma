@@ -33,6 +33,7 @@ enum TaskStatus {
   IN_REVIEW
   DONE
   CANCELLED
+  ARCHIVED
 }
 
 enum TaskPriority {
@@ -73,6 +74,7 @@ model User {
   refreshTokens      RefreshToken[]
 
   @@unique([tenantId, email])
+  @@unique([id, tenantId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
 }
@@ -151,6 +153,7 @@ model Project {
   tasks       Task[]
 
   @@unique([tenantId, key])
+  @@unique([id, tenantId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
 }
@@ -158,12 +161,14 @@ model Project {
 model ProjectMember {
   projectId String
   userId    String
+  tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  user      User     @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
   @@id([projectId, userId])
+  @@index([tenantId, projectId])
   @@index([userId])
 }
 
@@ -180,12 +185,13 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project     Project      @relation(fields: [projectId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId, tenantId], references: [id, tenantId], onDelete: Restrict)
 
   @@index([tenantId, status])
   @@index([tenantId, projectId])
   @@index([projectId, status])
+  @@index([tenantId, priority])
   @@index([assigneeId, status])
   @@index([tenantId, dueDate])
 }

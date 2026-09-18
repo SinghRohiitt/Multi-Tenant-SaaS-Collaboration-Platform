@@ -19,7 +19,12 @@ const requireProjectMembership = async (
   client: PolicyClient,
 ): Promise<void> => {
   const membership = await client.projectMember.findFirst({
-    where: { projectId, userId: context.userId, project: { tenantId: context.tenantId } },
+    where: {
+      tenantId: context.tenantId,
+      projectId,
+      userId: context.userId,
+      project: { tenantId: context.tenantId },
+    },
   });
   if (!membership) throw new AppError(403, 'You are not authorized for this project');
 };

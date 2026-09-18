@@ -52,7 +52,12 @@ describe('tenant-aware authorization policies', () => {
       assertCanManageAssignedProject(tenantA, manager, 'project-a', db),
     ).resolves.toBeUndefined();
     expect(db.projectMember.findFirst).toHaveBeenCalledWith({
-      where: { projectId: 'project-a', userId: 'user-a', project: { tenantId: 'tenant-a' } },
+      where: {
+        tenantId: 'tenant-a',
+        projectId: 'project-a',
+        userId: 'user-a',
+        project: { tenantId: 'tenant-a' },
+      },
     });
   });
 
@@ -65,7 +70,12 @@ describe('tenant-aware authorization policies', () => {
       statusCode: 403,
     });
     expect(db.projectMember.findFirst).toHaveBeenCalledWith({
-      where: { projectId: 'tenant-b-project', userId: 'user-a', project: { tenantId: 'tenant-a' } },
+      where: {
+        tenantId: 'tenant-a',
+        projectId: 'tenant-b-project',
+        userId: 'user-a',
+        project: { tenantId: 'tenant-a' },
+      },
     });
   });
 

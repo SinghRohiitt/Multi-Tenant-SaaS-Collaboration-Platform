@@ -14,6 +14,11 @@ Prerequisites: Node.js 20+ and PostgreSQL 14+.
 
 The liveness endpoint is `GET /api/v1/health`; Swagger UI is at `http://localhost:3000/docs`.
 
+Projects are available under `/api/v1/projects`. Project memberships are managed under
+`/api/v1/projects/:projectId/members` and require a tenant-scoped access token.
+Tasks are available under `/api/v1/projects/:projectId/tasks`; individual task updates,
+assignment, and archiving use `/api/v1/tasks/:id`.
+
 ## Useful commands
 
 - `npm run build` / `npm start` — compile and run production output
