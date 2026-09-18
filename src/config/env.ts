@@ -8,6 +8,12 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection URL'),
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  JWT_ACCESS_EXPIRES_IN: z
+    .string()
+    .regex(/^\d+[smhd]$/, 'JWT_ACCESS_EXPIRES_IN must look like 15m or 1h')
+    .default('15m'),
+  REFRESH_TOKEN_EXPIRES_IN_DAYS: z.coerce.number().int().positive().max(90).default(7),
 });
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
