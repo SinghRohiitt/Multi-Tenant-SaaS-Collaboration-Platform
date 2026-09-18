@@ -1,113 +1,192 @@
 # Multi-Tenant SaaS Collaboration Platform
 
-Express + TypeScript API foundation using PostgreSQL and Prisma.
+An Express and TypeScript backend for tenant-isolated project collaboration. The API
+uses PostgreSQL and Prisma as its source of truth, JWT authentication with refresh-token
+rotation, role-based authorization, optional Redis caching, and typed Kafka domain events.
+
+## What Is Included
+
+- Tenant-scoped users, projects, project membership, and tasks
+- Admin, manager, and member roles with explicit permissions
+- JWT access tokens and database-backed refresh tokens
+- PostgreSQL persistence with Prisma migrations and composite tenant foreign keys
+- Best-effort Redis caching for authorized read operations
+- Typed Kafka events with a cache-invalidation consumer
+- Docker Compose development environment for the API and dependencies
+
+See [docs/architecture.md](docs/architecture.md) for the system diagram and design details.
 
 ## Prerequisites
 
 - Docker Desktop with Docker Compose v2
-- Node.js 20+ for running commands directly on the host
+- Node.js 20 or newer for host-based development
+- PowerShell examples below can be translated to another shell
 
 ## Environment Setup
 
-Copy the safe template and change the local placeholder values as needed:
+Create a local environment file from the committed template:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-The Compose stack reads PostgreSQL credentials from `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, and `POSTGRES_DB`. Do not commit `.env` or real credentials.
+`.env` is ignored by Git. Replace placeholder secrets before using the API beyond local
+development. The Docker Compose file requires `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
+`POSTGRES_DB`; the application container derives its Docker-internal PostgreSQL URL from
+those values.
 
-## Docker Startup
+### Environment Variables
 
-Build and start PostgreSQL, Redis, Kafka, and the application:
+| Variable                        | Purpose                                            | Local default                                 |
+| ------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| `NODE_ENV`                      | Runtime mode                                       | `development`                                 |
+| `PORT`                          | HTTP port                                          | `3000`                                        |
+| `API_PREFIX`                    | API route prefix                                   | `/api/v1`                                     |
+| `LOG_LEVEL`                     | Configured log level                               | `info`                                        |
+| `CORS_ORIGIN`                   | Comma-separated allowed origins                    | `http://localhost:3000,http://localhost:5173` |
+| `DATABASE_URL`                  | Host-side PostgreSQL connection URL                | `postgresql://...localhost...`                |
+| `POSTGRES_USER`                 | PostgreSQL container user                          | `app_user`                                    |
+| `POSTGRES_PASSWORD`             | PostgreSQL container password                      | placeholder only                              |
+| `POSTGRES_DB`                   | PostgreSQL database name                           | `collaboration_platform`                      |
+| `JWT_ACCESS_SECRET`             | Access-token signing secret, minimum 32 characters | placeholder only                              |
+| `JWT_ACCESS_EXPIRES_IN`         | Access-token lifetime such as `15m`                | `15m`                                         |
+| `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Refresh-token lifetime                             | `7`                                           |
+| `REDIS_ENABLED`                 | Enable Redis reads and writes                      | `false` outside Compose                       |
+| `REDIS_URL`                     | Redis connection URL                               | `redis://localhost:6379`                      |
+| `REDIS_DEFAULT_TTL_SECONDS`     | Cache entry TTL                                    | `60`                                          |
+| `KAFKA_ENABLED`                 | Enable event producer and consumer                 | `false` outside Compose                       |
+| `KAFKA_BROKERS`                 | Comma-separated Kafka brokers                      | `localhost:9092`                              |
+| `KAFKA_CLIENT_ID`               | Kafka client identifier                            | `collaboration-platform-api`                  |
+| `KAFKA_GROUP_ID`                | Consumer group identifier                          | `collaboration-platform-cache`                |
+| `KAFKA_TOPIC`                   | Domain event topic                                 | `collaboration.domain-events`                 |
+
+## Docker Development
+
+Start PostgreSQL, Redis, Kafka, and the API. The API waits for healthy dependencies and
+runs committed Prisma migrations before starting the development server:
 
 ```powershell
 docker compose up --build
 ```
 
-The application waits for healthy dependencies, exposes the API on
-`http://localhost:3000`, and enables Redis and Kafka using their Docker service names.
-Stop the stack with `docker compose down`; add `-v` when you also want to remove the
-local PostgreSQL data volume.
+The API is available at `http://localhost:3000`. Useful operational commands:
 
-## Database Migration
+```powershell
+docker compose logs -f app
+docker compose down
+docker compose down -v  # also remove the local PostgreSQL volume
+```
 
-The application container runs committed migrations automatically before development
-startup. To run migrations separately:
+The Compose Kafka listener is available to the host at `localhost:9092` and to the API
+container at `kafka:9092`. Redis and PostgreSQL use `redis:6379` and `postgres:5432`
+inside the Compose network.
+
+## Database and Migrations
+
+The application container runs:
+
+```text
+npm run prisma:migrate:deploy && npm run dev
+```
+
+Run committed migrations explicitly with:
 
 ```powershell
 docker compose run --rm app npm run prisma:migrate:deploy
 ```
 
-For a new migration while developing locally, run the API and Prisma CLI on the host:
+For schema development on the host, install dependencies and create a migration with:
 
 ```powershell
 npm install
 npm run prisma:migrate:dev -- --name describe_change
 ```
 
-## Application Startup
-
-Docker startup is the recommended local workflow:
-
-```powershell
-docker compose up --build
-```
-
-To run only the API on the host, set `DATABASE_URL` to a reachable PostgreSQL instance,
-start the optional dependencies, and run `npm run dev`.
+The database contains tenants, users, roles, permissions, projects, project members,
+tasks, and refresh tokens. Project members and tasks use composite tenant-aware foreign
+keys so IDs cannot connect records across tenants. See the [database overview](docs/architecture.md#database-overview).
 
 ## API Documentation
 
-- Health: `GET http://localhost:3000/api/v1/health`
-- Swagger UI: `http://localhost:3000/docs`
-- Projects: `/api/v1/projects`
-- Project members: `/api/v1/projects/:projectId/members`
-- Tasks: `/api/v1/projects/:projectId/tasks`
+Swagger UI is available at `http://localhost:3000/docs`. The generated OpenAPI server
+prefix is `/api/v1` by default. The health operation is currently annotated in OpenAPI;
+the complete implemented route inventory is documented below.
 
-The API publishes typed user, project, and task domain events to Kafka. The separate
-consumer invalidates tenant cache entries for relevant events; duplicate deliveries are
-safe because cache invalidation is idempotent.
+### Authentication
 
-The liveness endpoint is `GET /api/v1/health`; Swagger UI is at `http://localhost:3000/docs`.
+| Method | Endpoint                | Purpose                                            |
+| ------ | ----------------------- | -------------------------------------------------- |
+| `POST` | `/api/v1/auth/register` | Register a user in an existing active tenant       |
+| `POST` | `/api/v1/auth/login`    | Authenticate and receive access and refresh tokens |
+| `POST` | `/api/v1/auth/refresh`  | Rotate a refresh token and issue a new session     |
+| `POST` | `/api/v1/auth/logout`   | Revoke a refresh token                             |
+| `GET`  | `/api/v1/auth/me`       | Return the authenticated user                      |
 
-Projects are available under `/api/v1/projects`. Project memberships are managed under
-`/api/v1/projects/:projectId/members` and require a tenant-scoped access token.
-Tasks are available under `/api/v1/projects/:projectId/tasks`; individual task updates,
-assignment, and archiving use `/api/v1/tasks/:id`.
+### Resources
 
-## Useful commands
+| Method   | Endpoint                                      | Purpose                                              |
+| -------- | --------------------------------------------- | ---------------------------------------------------- |
+| `GET`    | `/api/v1/health`                              | Liveness check                                       |
+| `POST`   | `/api/v1/projects`                            | Create a project and add its creator as a member     |
+| `GET`    | `/api/v1/projects`                            | List authorized projects with pagination and filters |
+| `GET`    | `/api/v1/projects/:id`                        | Read one authorized project                          |
+| `PATCH`  | `/api/v1/projects/:id`                        | Update a project                                     |
+| `DELETE` | `/api/v1/projects/:id`                        | Archive a project                                    |
+| `POST`   | `/api/v1/projects/:projectId/members`         | Add a same-tenant member                             |
+| `GET`    | `/api/v1/projects/:projectId/members`         | List project members                                 |
+| `GET`    | `/api/v1/projects/:projectId/members/:userId` | Read a project member                                |
+| `DELETE` | `/api/v1/projects/:projectId/members/:userId` | Remove a project member                              |
+| `POST`   | `/api/v1/projects/:projectId/tasks`           | Create a task                                        |
+| `GET`    | `/api/v1/projects/:projectId/tasks`           | List project tasks with filters                      |
+| `GET`    | `/api/v1/tasks/:id`                           | Read one task                                        |
+| `PATCH`  | `/api/v1/tasks/:id`                           | Update a task                                        |
+| `PATCH`  | `/api/v1/tasks/:id/assignee`                  | Assign or unassign a task                            |
+| `DELETE` | `/api/v1/tasks/:id`                           | Archive a task                                       |
 
-- `npm run build` / `npm start` — compile and run production output
-- `npm run typecheck` — validate TypeScript without output
-- `npm run lint` / `npm run lint:fix` — check or fix lint issues
-- `npm run format` / `npm run format:check` — format or check files
-- `npm run prisma:generate` — regenerate Prisma Client
-- `npm run prisma:migrate:dev` — create and apply development migrations
-- `npm run prisma:migrate:deploy` — apply committed migrations
-- `npm run prisma:studio` — browse the database locally
-- `docker compose logs -f app` — follow application logs
-- `docker compose down` — stop local services
+Protected endpoints use `Authorization: Bearer <access-token>`. Request DTOs are validated
+with Zod before reaching service logic.
 
-## Test Commands
+## Testing and Quality Commands
 
 ```powershell
 npm test
 npm run lint
 npm run typecheck
 npm run build
+npx prisma validate
 ```
 
-## Layout
+The tests focus on authentication, authorization, tenant isolation, resource services,
+validation failures, Redis cache behavior, and Kafka event handling.
+
+## Repository Layout
 
 ```text
 src/
-  common/       shared errors and middleware
-  config/       validated environment configuration
-  database/     Prisma client
-  docs/         OpenAPI / Swagger configuration
-  modules/      feature modules (router, service, schema, etc.)
+  common/                 auth, RBAC, tenancy, validation, errors
+  config/                 validated environment configuration
+  database/               Prisma client setup
+  docs/                   Swagger/OpenAPI setup
+  events/                 typed Kafka contracts, producer, consumer
+  cache/                  Redis client and tenant-aware cache keys
+  modules/
+    auth/                 registration, login, tokens, auth middleware
+    projects/             project routes, schemas, service
+    project-members/      membership routes, schemas, service
+    tasks/                task routes, schemas, service
+    health/               liveness endpoint
+prisma/
+  schema.prisma           data model
+  migrations/             committed database migrations
+test/                     business-focused unit/service tests
 ```
 
-Never commit `.env` or real credentials. `.env.example` has safe placeholders only.
+## Scope and Limitations
+
+Kafka publishing is best-effort; this repository does not implement an outbox or durable
+event retry store. The current consumer performs idempotent cache invalidation, not general
+business-side-effect processing. Redis is an optimization and PostgreSQL remains the
+source of truth.
+
+Never commit `.env`, real credentials, access tokens, refresh tokens, passwords, or password
+hashes.

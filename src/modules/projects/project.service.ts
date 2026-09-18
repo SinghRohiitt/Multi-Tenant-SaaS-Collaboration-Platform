@@ -31,8 +31,11 @@ export type ProjectListResponse = {
 };
 
 export type ProjectRepository = {
-  create: (tenantId: string, input: CreateProjectInput) => Promise<ProjectResponse>;
-  addMember: (tenantId: string, projectId: string, userId: string) => Promise<void>;
+  createWithMember: (
+    tenantId: string,
+    input: CreateProjectInput,
+    userId: string,
+  ) => Promise<ProjectResponse>;
   findByTenant: (tenantId: string, projectId: string) => Promise<ProjectResponse | null>;
   hasMembership: (tenantId: string, projectId: string, userId: string) => Promise<boolean>;
   update: (projectId: string, input: UpdateProjectInput) => Promise<ProjectResponse>;
@@ -41,14 +44,15 @@ export type ProjectRepository = {
 };
 
 const prismaRepository: ProjectRepository = {
-  create: (tenantId, input) =>
-    prisma.project.create({
-      data: { tenantId, key: input.key, name: input.name, description: input.description },
-      select: projectSelect,
+  createWithMember: (tenantId, input, userId) =>
+    prisma.$transaction(async (transaction) => {
+      const project = await transaction.project.create({
+        data: { tenantId, key: input.key, name: input.name, description: input.description },
+        select: projectSelect,
+      });
+      await transaction.projectMember.create({ data: { tenantId, projectId: project.id, userId } });
+      return project;
     }),
-  addMember: async (tenantId, projectId, userId) => {
-    await prisma.projectMember.create({ data: { tenantId, projectId, userId } });
-  },
   findByTenant: (tenantId, projectId) =>
     prisma.project.findFirst({ where: { id: projectId, tenantId }, select: projectSelect }),
   hasMembership: async (tenantId, projectId, userId) =>
@@ -126,8 +130,7 @@ export const createProject = async (
   repository: ProjectRepository = prismaRepository,
 ): Promise<ProjectResponse> => {
   try {
-    const project = await repository.create(context.tenantId, input);
-    await repository.addMember(context.tenantId, project.id, context.userId);
+    const project = await repository.createWithMember(context.tenantId, input, context.userId);
     await cache.invalidateTenant(context.tenantId, 'projects');
     await publishDomainEvent(
       createDomainEvent('ProjectCreated', context.tenantId, context.userId, {
@@ -150,8 +153,15 @@ export const listProjects = async (
   input: ListProjectsInput,
   repository: ProjectRepository = prismaRepository,
 ): Promise<ProjectListResponse> => {
-  const cacheKey = cacheKeys.projects(context.tenantId, context.userId, input);
-  const cached = await cache.get<ProjectListResponse>(cacheKey);
+  if (!isAdmin(authorization) && !has(authorization, Permission.PROJECT_VIEW_ASSIGNED)) {
+    throw new AppError(403, 'You cannot view projects');
+  }
+  const cacheable = isAdmin(authorization);
+  const cacheKey = cacheKeys.projects(context.tenantId, context.userId, {
+    input,
+    scope: isAdmin(authorization) ? 'admin' : 'assigned',
+  });
+  const cached = cacheable ? await cache.get<ProjectListResponse>(cacheKey) : null;
   if (cached) return cached;
   const where: Prisma.ProjectWhereInput = {
     tenantId: context.tenantId,
@@ -180,7 +190,7 @@ export const listProjects = async (
       totalPages: Math.ceil(total / input.limit),
     },
   };
-  await cache.set(cacheKey, result);
+  if (cacheable) await cache.set(cacheKey, result);
   return result;
 };
 

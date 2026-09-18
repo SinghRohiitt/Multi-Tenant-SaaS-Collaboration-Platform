@@ -71,6 +71,18 @@ describe('domain events', () => {
         ),
       ),
     ).resolves.toBeUndefined();
+    await expect(
+      processDomainEvent(
+        Buffer.from(
+          JSON.stringify({
+            eventId: 'event-b',
+            type: 'ProjectUpdated',
+            tenantId: 'tenant-a',
+            payload: {},
+          }),
+        ),
+      ),
+    ).resolves.toBeUndefined();
     expect(invalidateTenant).not.toHaveBeenCalled();
   });
 });

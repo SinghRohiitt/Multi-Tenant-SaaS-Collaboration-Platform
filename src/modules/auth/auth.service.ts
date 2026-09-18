@@ -1,4 +1,4 @@
-import { Prisma, UserStatus } from '@prisma/client';
+import { Prisma, TenantStatus, UserStatus } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
 import { assignRole } from '../../common/authorization/rbac.service.js';
@@ -39,8 +39,8 @@ const createSession = async (user: TokenUser) => {
 };
 
 export const register = async (input: RegisterInput) => {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: input.tenantId },
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: input.tenantId, status: TenantStatus.ACTIVE },
     select: { id: true },
   });
   if (!tenant) throw new AppError(404, 'Organization not found');
@@ -73,10 +73,12 @@ export const register = async (input: RegisterInput) => {
 export const login = async (input: LoginInput) => {
   const user = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId: input.tenantId, email: input.email.toLowerCase() } },
+    include: { tenant: { select: { status: true } } },
   });
   if (
     !user?.passwordHash ||
     user.status !== UserStatus.ACTIVE ||
+    user.tenant.status !== TenantStatus.ACTIVE ||
     !(await comparePassword(input.password, user.passwordHash))
   ) {
     throw new AppError(401, 'Invalid email or password');
@@ -97,13 +99,18 @@ export const refresh = async (refreshToken: string) => {
   const tokenHash = hashRefreshToken(refreshToken);
   const session = await prisma.refreshToken.findUnique({
     where: { tokenHash },
-    include: { user: { select: { id: true, tenantId: true, status: true } } },
+    include: {
+      user: {
+        select: { id: true, tenantId: true, status: true, tenant: { select: { status: true } } },
+      },
+    },
   });
   if (
     !session ||
     session.revokedAt ||
     session.expiresAt <= new Date() ||
-    session.user.status !== UserStatus.ACTIVE
+    session.user.status !== UserStatus.ACTIVE ||
+    session.user.tenant.status !== TenantStatus.ACTIVE
   ) {
     throw new AppError(401, 'Invalid or expired refresh token');
   }
@@ -123,4 +130,7 @@ export const logout = async (refreshToken: string): Promise<void> => {
 };
 
 export const findActiveUser = (id: string, tenantId: string) =>
-  prisma.user.findFirst({ where: { id, tenantId, status: UserStatus.ACTIVE }, select: publicUser });
+  prisma.user.findFirst({
+    where: { id, tenantId, status: UserStatus.ACTIVE, tenant: { status: TenantStatus.ACTIVE } },
+    select: publicUser,
+  });

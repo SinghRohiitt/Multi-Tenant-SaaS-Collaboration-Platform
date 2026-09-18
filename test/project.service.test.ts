@@ -38,8 +38,7 @@ const project = (changes: Partial<ProjectResponse> = {}): ProjectResponse => ({
 });
 
 const repository = (overrides: Partial<ProjectRepository> = {}): ProjectRepository => ({
-  create: vi.fn().mockResolvedValue(project()),
-  addMember: vi.fn().mockResolvedValue(undefined),
+  createWithMember: vi.fn().mockResolvedValue(project()),
   findByTenant: vi.fn().mockResolvedValue(project()),
   hasMembership: vi.fn().mockResolvedValue(true),
   update: vi.fn().mockImplementation(async (_id, input) => project(input)),
@@ -55,8 +54,14 @@ describe('project service', () => {
     const result = await createProject(tenantA, { key: 'ALPHA', name: 'Alpha' }, db);
 
     expect(result.tenantId).toBe('tenant-a');
-    expect(db.create).toHaveBeenCalledWith('tenant-a', { key: 'ALPHA', name: 'Alpha' });
-    expect(db.addMember).toHaveBeenCalledWith('tenant-a', 'project-a', 'user-a');
+    expect(db.createWithMember).toHaveBeenCalledWith(
+      'tenant-a',
+      {
+        key: 'ALPHA',
+        name: 'Alpha',
+      },
+      'user-a',
+    );
   });
 
   it('reads, updates, and archives an admin project without exposing other tenants', async () => {
@@ -109,14 +114,14 @@ describe('project service', () => {
       code: 'P2002',
       clientVersion: 'test',
     });
-    const db = repository({ create: vi.fn().mockRejectedValue(duplicate) });
+    const db = repository({ createWithMember: vi.fn().mockRejectedValue(duplicate) });
 
     await expect(createProject(tenantA, { key: 'ALPHA', name: 'Alpha' }, db)).rejects.toMatchObject(
       {
         statusCode: 409,
       },
     );
-    expect(db.addMember).not.toHaveBeenCalled();
+    expect(db.createWithMember).toHaveBeenCalledTimes(1);
   });
 
   it('applies pagination, status, search, and membership filtering to project lists', async () => {

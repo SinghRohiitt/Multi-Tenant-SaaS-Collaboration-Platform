@@ -14,8 +14,12 @@ const isDomainEvent = (value: unknown): value is DomainEvent => {
   return (
     typeof event.eventId === 'string' &&
     typeof event.tenantId === 'string' &&
+    typeof event.actorId === 'string' &&
+    event.version === 1 &&
+    typeof event.occurredAt === 'string' &&
     typeof event.type === 'string' &&
     domainEventTypes.includes(event.type as (typeof domainEventTypes)[number]) &&
+    event.payload !== null &&
     typeof event.payload === 'object'
   );
 };

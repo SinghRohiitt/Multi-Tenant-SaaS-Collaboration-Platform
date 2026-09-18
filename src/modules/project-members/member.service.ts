@@ -131,6 +131,7 @@ export const addMember = async (
     const created = await db.create(context.tenantId, projectId, input.userId);
     await cache.invalidateTenant(context.tenantId, 'members');
     await cache.invalidateTenant(context.tenantId, 'projects');
+    await cache.invalidateTenant(context.tenantId, 'tasks');
     return created;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -154,6 +155,7 @@ export const removeMember = async (
   await db.remove(context.tenantId, projectId, userId);
   await cache.invalidateTenant(context.tenantId, 'members');
   await cache.invalidateTenant(context.tenantId, 'projects');
+  await cache.invalidateTenant(context.tenantId, 'tasks');
 };
 
 export const listMembers = async (

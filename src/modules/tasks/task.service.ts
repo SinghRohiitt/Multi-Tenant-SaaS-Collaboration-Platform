@@ -196,13 +196,16 @@ export const listTasks = async (
 ): Promise<TaskListResponse> => {
   await requireProject(context, projectId, db);
   await requireProjectTaskAccess(context, authorization, projectId, db);
-  const cacheKey = cacheKeys.tasks(context.tenantId, context.userId, projectId, input);
-  const cached = await cache.get<TaskListResponse>(cacheKey);
-  if (cached) return cached;
   const memberOnly =
     !isAdmin(authorization) &&
     !has(authorization, Permission.TASK_UPDATE) &&
     !has(authorization, Permission.TASK_CREATE);
+  const cacheKey = cacheKeys.tasks(context.tenantId, context.userId, projectId, {
+    input,
+    scope: memberOnly ? 'assigned' : 'project',
+  });
+  const cached = await cache.get<TaskListResponse>(cacheKey);
+  if (cached) return cached;
   const where: Prisma.TaskWhereInput = {
     tenantId: context.tenantId,
     projectId,

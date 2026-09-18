@@ -1,6 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { Prisma } from '@prisma/client';
-import { config } from '../../config/index.js';
 import { AppError } from '../errors/app-error.js';
 export const notFoundHandler: RequestHandler = (request, _response, next) =>
   next(new AppError(404, `Route ${request.method} ${request.originalUrl} was not found`));
@@ -24,8 +23,5 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     success: false,
     message,
     ...(details ? { details } : {}),
-    ...(config.env === 'development' && statusCode >= 500 && error instanceof Error
-      ? { stack: error.stack }
-      : {}),
   });
 };

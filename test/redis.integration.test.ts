@@ -45,6 +45,10 @@ import {
 } from '../src/modules/project-members/member.service.js';
 
 const admin: AuthorizationContext = { roles: [RoleName.ADMIN], permissions: rolePermissions.ADMIN };
+const memberAuthorization: AuthorizationContext = {
+  roles: [RoleName.MEMBER],
+  permissions: rolePermissions.MEMBER,
+};
 const tenantA: TenantContext = { tenantId: 'tenant-a', userId: 'user-a' };
 const tenantB: TenantContext = { tenantId: 'tenant-b', userId: 'user-a' };
 const listInput = { page: 1, limit: 10 };
@@ -85,8 +89,7 @@ const member = (): ProjectMemberResponse => ({
 });
 
 const projectRepository = (overrides: Partial<ProjectRepository> = {}): ProjectRepository => ({
-  create: vi.fn(),
-  addMember: vi.fn(),
+  createWithMember: vi.fn(),
   findByTenant: vi.fn().mockResolvedValue(project()),
   hasMembership: vi.fn().mockResolvedValue(true),
   update: vi.fn().mockResolvedValue(project()),
@@ -151,6 +154,28 @@ describe('Redis-backed service caching', () => {
     expect(db.list).toHaveBeenCalledTimes(2);
   });
 
+  it('does not serve a project cache entry to an unauthorized caller', async () => {
+    const db = projectRepository();
+    await listProjects(tenantA, admin, listInput, db);
+
+    await expect(
+      listProjects(tenantA, { roles: [], permissions: [] }, listInput, db),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+    });
+  });
+
+  it('does not cache assigned project lists because membership can change per user', async () => {
+    const db = projectRepository();
+    const manager = { roles: [RoleName.MANAGER], permissions: rolePermissions.MANAGER };
+
+    await listProjects(tenantA, manager, listInput, db);
+    await listProjects(tenantA, manager, listInput, db);
+
+    expect(db.list).toHaveBeenCalledTimes(2);
+    expect(cacheState.set).not.toHaveBeenCalled();
+  });
+
   it('caches task and member list reads with their existing key helpers', async () => {
     const tasks = taskRepository();
     const members = memberRepository();
@@ -162,6 +187,20 @@ describe('Redis-backed service caching', () => {
 
     expect(tasks.list).toHaveBeenCalledTimes(1);
     expect(members.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('separates task caches for project-level and assigned-task scopes', async () => {
+    const tasks = taskRepository();
+
+    await listTasks(tenantA, admin, 'project-a', listInput, tasks);
+    await listTasks(tenantA, memberAuthorization, 'project-a', listInput, tasks);
+
+    expect(tasks.list).toHaveBeenCalledTimes(2);
+    expect(tasks.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ assigneeId: 'user-a' }),
+      0,
+      10,
+    );
   });
 
   it('invalidates project list caches after a successful update', async () => {
