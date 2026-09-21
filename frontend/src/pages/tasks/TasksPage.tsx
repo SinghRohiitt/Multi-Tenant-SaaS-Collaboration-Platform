@@ -1,5 +1,6 @@
 import { ListFilter, Plus, Search } from 'lucide-react';
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -30,18 +31,32 @@ const priorities: Array<{ label: string; value: TaskPriority | '' }> = [
   { label: 'Urgent', value: 'URGENT' },
 ];
 
+function readEnumParam<T extends string>(value: string | null, allowed: readonly T[]) {
+  return value && allowed.includes(value as T) ? (value as T) : undefined;
+}
+
 export function TasksPage() {
   const currentUser = useAppSelector((state) => state.auth.currentUser);
   const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
   const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
-  const [search, setSearch] = useState('');
-  const [projectId, setProjectId] = useState('');
-  const [status, setStatus] = useState<TaskStatus | undefined>();
-  const [priority, setPriority] = useState<TaskPriority | undefined>();
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchDraft, setSearchDraft] = useState(searchParams.get('search') ?? '');
+  const [assigneeDraft, setAssigneeDraft] = useState(searchParams.get('assigneeId') ?? '');
   const [modal, setModal] = useState<'create' | Task | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Task | null>(null);
-  const deferredSearch = useDeferredValue(search);
+  const search = searchParams.get('search') ?? '';
+  const projectId = searchParams.get('projectId') ?? '';
+  const status = readEnumParam(
+    searchParams.get('status'),
+    statuses.slice(1).map((item) => item.value) as TaskStatus[],
+  );
+  const priority = readEnumParam(
+    searchParams.get('priority'),
+    priorities.slice(1).map((item) => item.value) as TaskPriority[],
+  );
+  const assigneeId = searchParams.get('assigneeId') ?? '';
+  const parsedPage = Number(searchParams.get('page') ?? '1');
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const {
     tasks,
     projects,
@@ -59,12 +74,49 @@ export function TasksPage() {
     page,
     limit: 20,
     projectId: projectId || undefined,
-    search: deferredSearch.trim() || undefined,
+    search: search || undefined,
     status,
     priority,
+    assigneeId: assigneeId || undefined,
   });
 
-  useEffect(() => setPage(1), [deferredSearch, priority, projectId, status]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const nextSearch = searchDraft.trim();
+      if (nextSearch === search) return;
+      const nextParams = new URLSearchParams(searchParams);
+      if (nextSearch) nextParams.set('search', nextSearch);
+      else nextParams.delete('search');
+      nextParams.delete('page');
+      setSearchParams(nextParams, { replace: true });
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [search, searchDraft, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const nextAssignee = assigneeDraft.trim();
+      if (nextAssignee === assigneeId) return;
+      updateFilters({ assigneeId: nextAssignee || undefined });
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [assigneeDraft, assigneeId]);
+
+  function updateFilters(updates: Record<string, string | undefined>) {
+    const nextParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) nextParams.set(key, value);
+      else nextParams.delete(key);
+    });
+    if (!('page' in updates)) nextParams.delete('page');
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  function clearFilters() {
+    setSearchDraft('');
+    setAssigneeDraft('');
+    setSearchParams({}, { replace: true });
+  }
 
   async function submitTask(values: TaskFormValues) {
     if (modal === 'create') {
@@ -141,17 +193,16 @@ export function TasksPage() {
             <Input
               className="pl-9"
               id="task-search"
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => setSearchDraft(event.target.value)}
               placeholder="Search title or description"
-              value={search}
+              value={searchDraft}
             />
           </div>
         </div>
         <Select
           label="Project"
           onChange={(event) => {
-            setProjectId(event.target.value);
-            setPage(1);
+            updateFilters({ projectId: event.target.value || undefined });
           }}
           value={projectId}
         >
@@ -165,8 +216,7 @@ export function TasksPage() {
         <Select
           label="Status"
           onChange={(event) => {
-            setStatus((event.target.value || undefined) as TaskStatus | undefined);
-            setPage(1);
+            updateFilters({ status: event.target.value || undefined });
           }}
           value={status ?? ''}
         >
@@ -179,8 +229,7 @@ export function TasksPage() {
         <Select
           label="Priority"
           onChange={(event) => {
-            setPriority((event.target.value || undefined) as TaskPriority | undefined);
-            setPage(1);
+            updateFilters({ priority: event.target.value || undefined });
           }}
           value={priority ?? ''}
         >
@@ -190,6 +239,19 @@ export function TasksPage() {
             </option>
           ))}
         </Select>
+        <Input
+          label="Assignee ID"
+          onChange={(event) => setAssigneeDraft(event.target.value)}
+          placeholder="Optional user ID"
+          value={assigneeDraft}
+        />
+        {(search || projectId || status || priority || assigneeId) && (
+          <div className="flex items-end">
+            <Button className="w-full" onClick={clearFilters} type="button" variant="ghost">
+              Clear filters
+            </Button>
+          </div>
+        )}
       </section>
       {loading ? (
         <div aria-label="Loading tasks" className="space-y-3" role="status">
@@ -206,13 +268,17 @@ export function TasksPage() {
       ) : tasks.length === 0 ? (
         <EmptyState
           description={
-            search || projectId || status || priority
+            search || projectId || status || priority || assigneeId
               ? 'Try changing your filters.'
               : 'Create a task to start tracking work.'
           }
-          title={search || projectId || status || priority ? 'No matching tasks' : 'No tasks yet'}
+          title={
+            search || projectId || status || priority || assigneeId
+              ? 'No matching tasks'
+              : 'No tasks yet'
+          }
           action={
-            canManage && !search && !projectId && !status && !priority ? (
+            canManage && !search && !projectId && !status && !priority && !assigneeId ? (
               <Button onClick={openCreate}>
                 <Plus aria-hidden="true" className="size-4" /> Create task
               </Button>
@@ -229,7 +295,11 @@ export function TasksPage() {
             tasks={tasks}
           />
           {meta.totalPages > 1 && (
-            <Pagination onPageChange={setPage} page={meta.page} totalPages={meta.totalPages} />
+            <Pagination
+              onPageChange={(nextPage) => updateFilters({ page: String(nextPage) })}
+              page={meta.page}
+              totalPages={meta.totalPages}
+            />
           )}
         </>
       )}

@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { authReducer } from '@/features/auth/auth.slice';
 import { TasksPage } from './TasksPage';
@@ -16,7 +17,9 @@ function renderPage() {
   const store = configureStore({ reducer: { auth: authReducer } });
   return render(
     <Provider store={store}>
-      <TasksPage />
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>
     </Provider>,
   );
 }

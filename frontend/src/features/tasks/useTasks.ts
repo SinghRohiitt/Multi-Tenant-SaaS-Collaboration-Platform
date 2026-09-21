@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getApiErrorMessage } from '@/services/api';
 import { projectsApi } from '@/services/projects.api';
 import {
@@ -34,9 +34,13 @@ export function useTasks(query: TaskQuery) {
   const [mutationLoading, setMutationLoading] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const projectsCache = useRef<Project[] | null>(null);
   const pageSize = query.limit ?? 20;
 
-  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+  const reload = useCallback(() => {
+    projectsCache.current = null;
+    setReloadKey((key) => key + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,12 +48,25 @@ export function useTasks(query: TaskQuery) {
     setError(null);
 
     async function loadTasks() {
-      const projectList = await fetchAllPages((page) =>
-        projectsApi.list({ page, limit: PAGE_SIZE }),
-      );
+      const projectList =
+        projectsCache.current ??
+        (await fetchAllPages((page) => projectsApi.list({ page, limit: PAGE_SIZE })));
+      projectsCache.current = projectList;
       const selectedProjects = query.projectId
         ? projectList.filter((project) => project.id === query.projectId)
         : projectList;
+      if (query.projectId) {
+        const response = await tasksApi.listByProject(query.projectId, {
+          page: query.page,
+          limit: pageSize,
+          search: query.search,
+          status: query.status,
+          priority: query.priority,
+          assigneeId: query.assigneeId,
+        });
+        return { projects: projectList, tasks: response.data, meta: response.meta };
+      }
+
       const taskLists = await Promise.all(
         selectedProjects.map((project) =>
           fetchAllPages((page) =>
@@ -59,6 +76,7 @@ export function useTasks(query: TaskQuery) {
               search: query.search,
               status: query.status,
               priority: query.priority,
+              assigneeId: query.assigneeId,
             }),
           ),
         ),
@@ -67,17 +85,19 @@ export function useTasks(query: TaskQuery) {
     }
 
     loadTasks()
-      .then(({ projects: projectList, tasks: taskList }) => {
+      .then(({ projects: projectList, tasks: taskList, meta: serverMeta }) => {
         if (cancelled) return;
         const start = (query.page - 1) * pageSize;
         setProjects(projectList);
-        setTasks(taskList.slice(start, start + pageSize));
-        setMeta({
-          page: query.page,
-          limit: pageSize,
-          total: taskList.length,
-          totalPages: Math.ceil(taskList.length / pageSize),
-        });
+        setTasks(serverMeta ? taskList : taskList.slice(start, start + pageSize));
+        setMeta(
+          serverMeta ?? {
+            page: query.page,
+            limit: pageSize,
+            total: taskList.length,
+            totalPages: Math.ceil(taskList.length / pageSize),
+          },
+        );
       })
       .catch((requestError: unknown) => {
         if (!cancelled) setError(getApiErrorMessage(requestError, 'Unable to load tasks'));
@@ -96,6 +116,7 @@ export function useTasks(query: TaskQuery) {
     query.projectId,
     query.search,
     query.status,
+    query.assigneeId,
     reloadKey,
   ]);
 
