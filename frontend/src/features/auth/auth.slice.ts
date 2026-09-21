@@ -3,9 +3,9 @@ import { authApi } from '@/services/auth.api';
 import { getApiErrorMessage, setAccessToken } from '@/services/api';
 import type { AuthSession, AuthUser, LoginPayload, RegisterPayload } from './auth.types';
 
-type AuthStatus = 'unauthenticated' | 'authenticated';
+export type AuthStatus = 'restoring' | 'unauthenticated' | 'authenticated';
 
-type AuthState = {
+export type AuthState = {
   currentUser: AuthUser | null;
   status: AuthStatus;
   loading: boolean;
@@ -15,8 +15,8 @@ type AuthState = {
 
 const initialState: AuthState = {
   currentUser: null,
-  status: 'unauthenticated',
-  loading: false,
+  status: 'restoring',
+  loading: true,
   error: null,
   refreshToken: null,
 };
@@ -54,6 +54,23 @@ export const register = createAsyncThunk<AuthSession, RegisterPayload, { rejectV
   },
 );
 
+export const restoreAuth = createAsyncThunk<AuthSession | null, void, { rejectValue: string }>(
+  'auth/restore',
+  async (_, { getState, rejectWithValue }) => {
+    const refreshToken = (getState() as { auth: AuthState }).auth.refreshToken;
+    if (!refreshToken) return null;
+
+    try {
+      const tokens = await authApi.refresh(refreshToken);
+      setAccessToken(tokens.accessToken);
+      const user = await authApi.me();
+      return { user, ...tokens };
+    } catch (error) {
+      return rejectWithValue(getApiErrorMessage(error, 'Your session has expired'));
+    }
+  },
+);
+
 export const logout = createAsyncThunk('auth/logout', async (_, { getState }) => {
   const refreshToken = (getState() as { auth: AuthState }).auth.refreshToken;
   if (refreshToken) await authApi.logout(refreshToken);
@@ -82,6 +99,27 @@ const authSlice = createSlice({
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
+      })
+      .addCase(restoreAuth.pending, (state) => {
+        state.loading = true;
+        state.status = 'restoring';
+        state.error = null;
+      })
+      .addCase(restoreAuth.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload) {
+          applySession(state, action.payload);
+        } else {
+          state.status = 'unauthenticated';
+        }
+      })
+      .addCase(restoreAuth.rejected, (state, action) => {
+        state.loading = false;
+        state.status = 'unauthenticated';
+        state.currentUser = null;
+        state.refreshToken = null;
+        state.error = action.payload ?? 'Your session has expired';
+        setAccessToken(null);
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;

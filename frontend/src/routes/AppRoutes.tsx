@@ -4,6 +4,7 @@ import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RoleRoute } from './RoleRoute';
 
@@ -21,13 +22,14 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<PlaceholderPage title="Dashboard" />} />
           <Route path="/projects" element={<PlaceholderPage title="Projects" />} />
           <Route path="/tasks" element={<PlaceholderPage title="Tasks" />} />
-          <Route element={<RoleRoute allowedRoles={['admin', 'manager']} />} path="/members">
+          <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/members">
             <Route index element={<PlaceholderPage title="Members" />} />
           </Route>
         </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
+      <Route path="/unauthorized" element={<UnauthorizedPage />} />
     </Routes>
   );
 }
