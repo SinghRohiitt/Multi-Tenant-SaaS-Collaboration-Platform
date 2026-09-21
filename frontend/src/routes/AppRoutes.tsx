@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage, RegisterPage } from '@/pages/auth';
+import { DashboardPage } from '@/pages/dashboard';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
@@ -19,7 +20,7 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<Navigate replace to="/dashboard" />} />
-          <Route path="/dashboard" element={<PlaceholderPage title="Dashboard" />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<PlaceholderPage title="Projects" />} />
           <Route path="/tasks" element={<PlaceholderPage title="Tasks" />} />
           <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/members">
