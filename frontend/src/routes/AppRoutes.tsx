@@ -25,6 +25,9 @@ export function AppRoutes() {
           <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/members">
             <Route index element={<PlaceholderPage title="Members" />} />
           </Route>
+          <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/settings">
+            <Route index element={<PlaceholderPage title="Settings" />} />
+          </Route>
         </Route>
       </Route>
 
