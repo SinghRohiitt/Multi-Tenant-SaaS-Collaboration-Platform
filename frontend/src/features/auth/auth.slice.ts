@@ -1,7 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import axios from 'axios';
 import { authApi } from '@/services/auth.api';
-import { setAccessToken } from '@/services/api';
+import { getApiErrorMessage, setAccessToken } from '@/services/api';
 import type { AuthSession, AuthUser, LoginPayload, RegisterPayload } from './auth.types';
 
 type AuthStatus = 'unauthenticated' | 'authenticated';
@@ -22,13 +21,6 @@ const initialState: AuthState = {
   refreshToken: null,
 };
 
-function getErrorMessage(error: unknown) {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data.message ?? 'Unable to complete authentication request';
-  }
-  return 'Unable to complete authentication request';
-}
-
 function applySession(state: AuthState, session: AuthSession) {
   state.currentUser = session.user;
   state.status = 'authenticated';
@@ -42,7 +34,9 @@ export const login = createAsyncThunk<AuthSession, LoginPayload, { rejectValue: 
     try {
       return await authApi.login(payload);
     } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      return rejectWithValue(
+        getApiErrorMessage(error, 'Unable to complete authentication request'),
+      );
     }
   },
 );
@@ -53,7 +47,9 @@ export const register = createAsyncThunk<AuthSession, RegisterPayload, { rejectV
     try {
       return await authApi.register(payload);
     } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      return rejectWithValue(
+        getApiErrorMessage(error, 'Unable to complete authentication request'),
+      );
     }
   },
 );
@@ -76,6 +72,9 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.error = null;
       setAccessToken(null);
+    },
+    tokensRefreshed(state, action: { payload: Pick<AuthSession, 'refreshToken'> }) {
+      state.refreshToken = action.payload.refreshToken;
     },
   },
   extraReducers: (builder) => {
@@ -124,5 +123,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, clearSession } = authSlice.actions;
+export const { clearAuthError, clearSession, tokensRefreshed } = authSlice.actions;
 export const authReducer = authSlice.reducer;
