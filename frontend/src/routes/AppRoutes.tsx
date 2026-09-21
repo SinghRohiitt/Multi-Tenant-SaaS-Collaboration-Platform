@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage, RegisterPage } from '@/pages/auth';
 import { DashboardPage } from '@/pages/dashboard';
-import { ProjectDetailsPage, ProjectsPage } from '@/pages/projects';
+import { ProjectDetailsPage, ProjectMembersPage, ProjectsPage } from '@/pages/projects';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
@@ -24,6 +24,7 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+          <Route path="/projects/:projectId/members" element={<ProjectMembersPage />} />
           <Route path="/tasks" element={<PlaceholderPage title="Tasks" />} />
           <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/members">
             <Route index element={<PlaceholderPage title="Members" />} />

@@ -45,6 +45,7 @@ export type UserSummary = {
   email: string;
   displayName: string;
   status: string;
+  role?: string;
 };
 
 export type Task = {
@@ -69,4 +70,5 @@ export type ProjectMember = {
   createdAt: string;
   updatedAt: string;
   user: UserSummary;
+  role?: string;
 };

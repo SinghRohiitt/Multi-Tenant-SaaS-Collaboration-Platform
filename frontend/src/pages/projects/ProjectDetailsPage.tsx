@@ -1,4 +1,4 @@
-import { ArrowLeft, Archive, Pencil } from 'lucide-react';
+import { ArrowLeft, Archive, Pencil, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -104,6 +104,14 @@ export function ProjectDetailsPage() {
               <Archive aria-hidden="true" className="size-4" /> Archive
             </Button>
           </div>
+        )}
+        {!canManage && (
+          <Link
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-transparent px-4 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            to={`/projects/${project.id}/members`}
+          >
+            <Users aria-hidden="true" className="size-4" /> Members
+          </Link>
         )}
       </header>
 
