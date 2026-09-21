@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 
-export function AppLayout() {
+export function DashboardLayout() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 px-6 py-4">
