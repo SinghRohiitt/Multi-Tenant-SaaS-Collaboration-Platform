@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { LoginPage, RegisterPage } from '@/pages/auth';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
@@ -10,8 +11,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={<PlaceholderPage title="Sign in" />} />
-        <Route path="/register" element={<PlaceholderPage title="Create account" />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
