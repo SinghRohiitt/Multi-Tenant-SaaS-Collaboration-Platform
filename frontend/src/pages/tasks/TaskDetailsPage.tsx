@@ -17,6 +17,7 @@ import {
 import { TaskFormModal, useTask } from '@/features/tasks';
 import type { TaskFormValues } from '@/features/tasks/task.schemas';
 import { useAppSelector } from '@/store/hooks';
+import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
 
 const statusTone = {
   BACKLOG: 'neutral',
@@ -43,9 +44,7 @@ export function TaskDetailsPage() {
     assignTask,
     archiveTask,
   } = useTask(taskId);
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
+  const canManage = useAppSelector(selectCanManageWorkspace);
   const [editing, setEditing] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [assigneeId, setAssigneeId] = useState('');

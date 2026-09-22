@@ -16,6 +16,7 @@ import { TaskFormModal, TaskTable, useTasks } from '@/features/tasks';
 import type { TaskFormValues } from '@/features/tasks/task.schemas';
 import type { Task, TaskPriority, TaskStatus } from '@/types/api';
 import { useAppSelector } from '@/store/hooks';
+import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
 
 const statuses: Array<{ label: string; value: TaskStatus | '' }> = [
   { label: 'All statuses', value: '' },
@@ -36,9 +37,7 @@ function readEnumParam<T extends string>(value: string | null, allowed: readonly
 }
 
 export function TasksPage() {
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
+  const canManage = useAppSelector(selectCanManageWorkspace);
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchDraft, setSearchDraft] = useState(searchParams.get('search') ?? '');
   const [assigneeDraft, setAssigneeDraft] = useState(searchParams.get('assigneeId') ?? '');

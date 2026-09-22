@@ -28,6 +28,15 @@ function applySession(state: AuthState, session: AuthSession) {
   setAccessToken(session.accessToken);
 }
 
+function clearSessionState(state: AuthState) {
+  state.currentUser = null;
+  state.status = 'unauthenticated';
+  state.loading = false;
+  state.refreshToken = null;
+  state.error = null;
+  setAccessToken(null);
+}
+
 export const login = createAsyncThunk<AuthSession, LoginPayload, { rejectValue: string }>(
   'auth/login',
   async (payload, { rejectWithValue }) => {
@@ -84,11 +93,7 @@ const authSlice = createSlice({
       state.error = null;
     },
     clearSession(state) {
-      state.currentUser = null;
-      state.status = 'unauthenticated';
-      state.refreshToken = null;
-      state.error = null;
-      setAccessToken(null);
+      clearSessionState(state);
     },
     tokensRefreshed(state, action: { payload: Pick<AuthSession, 'refreshToken'> }) {
       state.refreshToken = action.payload.refreshToken;
@@ -110,7 +115,7 @@ const authSlice = createSlice({
         if (action.payload) {
           applySession(state, action.payload);
         } else {
-          state.status = 'unauthenticated';
+          clearSessionState(state);
         }
       })
       .addCase(restoreAuth.rejected, (state, action) => {
@@ -143,20 +148,13 @@ const authSlice = createSlice({
       })
       .addCase(logout.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(logout.fulfilled, (state) => {
-        state.loading = false;
-        state.currentUser = null;
-        state.status = 'unauthenticated';
-        state.refreshToken = null;
-        setAccessToken(null);
+        clearSessionState(state);
       })
       .addCase(logout.rejected, (state) => {
-        state.loading = false;
-        state.currentUser = null;
-        state.status = 'unauthenticated';
-        state.refreshToken = null;
-        setAccessToken(null);
+        clearSessionState(state);
       });
   },
 });

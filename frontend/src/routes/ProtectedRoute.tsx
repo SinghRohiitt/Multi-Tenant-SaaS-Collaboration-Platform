@@ -1,11 +1,12 @@
 import type { PropsWithChildren } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
+import { selectAuthStatus } from '@/features/auth/auth.selectors';
 import { useAppSelector } from '@/store/hooks';
 
 export function ProtectedRoute({ children }: PropsWithChildren) {
   const location = useLocation();
-  const status = useAppSelector((state) => state.auth.status);
+  const status = useAppSelector(selectAuthStatus);
 
   if (status === 'restoring') {
     return (

@@ -14,12 +14,11 @@ import { AddMemberModal, MemberTable, useProjectMembers } from '@/features/membe
 import type { AddMemberFormValues } from '@/features/members/member.schemas';
 import type { ProjectMember } from '@/types/api';
 import { useAppSelector } from '@/store/hooks';
+import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
 
 export function ProjectMembersPage() {
   const { projectId } = useParams();
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
+  const canManage = useAppSelector(selectCanManageWorkspace);
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<ProjectMember | null>(null);

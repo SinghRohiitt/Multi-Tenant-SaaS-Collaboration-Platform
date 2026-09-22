@@ -15,6 +15,7 @@ import {
 import { ProjectFormModal } from '@/features/projects';
 import { useProject } from '@/features/projects/useProjects';
 import { useAppSelector } from '@/store/hooks';
+import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
 import type { UpdateProjectPayload } from '@/services/projects.api';
 
 const statusTone = {
@@ -38,9 +39,7 @@ export function ProjectDetailsPage() {
     updateProject,
     archiveProject,
   } = useProject(projectId);
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
+  const canManage = useAppSelector(selectCanManageWorkspace);
   const [editing, setEditing] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
 

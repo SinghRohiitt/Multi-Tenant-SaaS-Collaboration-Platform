@@ -18,6 +18,11 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Badge, Button, Dropdown, Skeleton } from '@/components/ui';
 import { logout } from '@/features/auth/auth.slice';
 import type { UserRole } from '@/features/auth/auth.types';
+import {
+  selectAuthLoading,
+  selectCanManageWorkspace,
+  selectCurrentUser,
+} from '@/features/auth/auth.selectors';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 
 type NavigationItem = {
@@ -41,12 +46,10 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const authLoading = useAppSelector((state) => state.auth.loading);
-  const roles: UserRole[] = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const visibleNavigation = navigation.filter(
-    (item) => !item.roles || item.roles.some((role) => roles.includes(role)),
-  );
+  const currentUser = useAppSelector(selectCurrentUser);
+  const authLoading = useAppSelector(selectAuthLoading);
+  const canManageWorkspace = useAppSelector(selectCanManageWorkspace);
+  const visibleNavigation = navigation.filter((item) => !item.roles || canManageWorkspace);
   const breadcrumbs = location.pathname
     .split('/')
     .filter(Boolean)

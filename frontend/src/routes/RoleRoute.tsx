@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
 import { useAppSelector } from '@/store/hooks';
 import type { UserRole } from '@/features/auth/auth.types';
+import { selectAuthStatus, selectCurrentUserRoles } from '@/features/auth/auth.selectors';
 
 type RoleRouteProps = PropsWithChildren<{
   allowedRoles: UserRole[];
@@ -10,7 +11,8 @@ type RoleRouteProps = PropsWithChildren<{
 
 export function RoleRoute(props: RoleRouteProps) {
   const location = useLocation();
-  const { currentUser, status } = useAppSelector((state) => state.auth);
+  const status = useAppSelector(selectAuthStatus);
+  const userRoles = useAppSelector(selectCurrentUserRoles);
 
   if (status === 'restoring') {
     return (
@@ -24,7 +26,6 @@ export function RoleRoute(props: RoleRouteProps) {
     return <Navigate replace state={{ from: location }} to="/login" />;
   }
 
-  const userRoles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
   if (!props.allowedRoles.some((role) => userRoles.includes(role))) {
     return <Navigate replace state={{ from: location }} to="/unauthorized" />;
   }

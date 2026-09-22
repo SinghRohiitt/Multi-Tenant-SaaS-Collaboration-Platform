@@ -4,12 +4,14 @@ import { useForm } from 'react-hook-form';
 import { Alert, Button, Input } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearAuthError, register } from '@/features/auth/auth.slice';
+import { selectAuthError, selectAuthLoading } from '@/features/auth/auth.selectors';
 import { registerSchema, type RegisterFormValues } from '@/features/auth/auth.schemas';
 
 export function RegisterPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { error, loading } = useAppSelector((state) => state.auth);
+  const error = useAppSelector(selectAuthError);
+  const loading = useAppSelector(selectAuthLoading);
   const {
     register: registerField,
     handleSubmit,

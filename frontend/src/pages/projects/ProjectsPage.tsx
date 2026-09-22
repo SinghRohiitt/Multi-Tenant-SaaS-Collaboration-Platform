@@ -15,6 +15,7 @@ import type { CreateProjectPayload, UpdateProjectPayload } from '@/services/proj
 import type { Project, ProjectStatus } from '@/types/api';
 import { ProjectFormModal, ProjectTable, useProjects } from '@/features/projects';
 import { useAppSelector } from '@/store/hooks';
+import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
 
 const statuses: Array<{ label: string; value: ProjectStatus | '' }> = [
   { label: 'All statuses', value: '' },
@@ -26,9 +27,7 @@ const statuses: Array<{ label: string; value: ProjectStatus | '' }> = [
 ];
 
 export function ProjectsPage() {
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
-  const roles = currentUser?.roles ?? (currentUser?.role ? [currentUser.role] : []);
-  const canManage = roles.some((role) => role === 'ADMIN' || role === 'MANAGER');
+  const canManage = useAppSelector(selectCanManageWorkspace);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProjectStatus | undefined>();
   const [page, setPage] = useState(1);
