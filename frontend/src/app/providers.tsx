@@ -3,13 +3,22 @@ import { Provider } from 'react-redux';
 import { restoreAuth } from '@/features/auth/auth.slice';
 import { useAppDispatch } from '@/store/hooks';
 import { store } from '@/store';
+import { useNotifications } from '@/hooks/useNotifications';
 
 function AuthBootstrap({ children }: PropsWithChildren) {
   const dispatch = useAppDispatch();
+  const notifications = useNotifications();
 
   useEffect(() => {
-    void dispatch(restoreAuth());
-  }, [dispatch]);
+    dispatch(restoreAuth()).then((result) => {
+      if (restoreAuth.rejected.match(result)) {
+        notifications.warning(
+          'Session could not be restored',
+          result.payload ?? 'Please sign in again.',
+        );
+      }
+    });
+  }, [dispatch, notifications]);
 
   return children;
 }

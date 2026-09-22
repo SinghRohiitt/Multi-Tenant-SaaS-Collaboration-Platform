@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Alert, Button, Input } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useNotifications } from '@/hooks/useNotifications';
 import { clearAuthError, login } from '@/features/auth/auth.slice';
 import { selectAuthError, selectAuthLoading } from '@/features/auth/auth.selectors';
 import { loginSchema, type LoginFormValues } from '@/features/auth/auth.schemas';
@@ -12,6 +13,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const error = useAppSelector(selectAuthError);
   const loading = useAppSelector(selectAuthLoading);
+  const notifications = useNotifications();
   const {
     register,
     handleSubmit,
@@ -21,7 +23,12 @@ export function LoginPage() {
   async function onSubmit(values: LoginFormValues) {
     dispatch(clearAuthError());
     const result = await dispatch(login(values));
-    if (login.fulfilled.match(result)) navigate('/dashboard', { replace: true });
+    if (login.fulfilled.match(result)) {
+      notifications.success('Signed in successfully');
+      navigate('/dashboard', { replace: true });
+    } else if (login.rejected.match(result)) {
+      notifications.error('Sign-in failed', result.payload ?? 'Unable to sign in');
+    }
   }
 
   return (

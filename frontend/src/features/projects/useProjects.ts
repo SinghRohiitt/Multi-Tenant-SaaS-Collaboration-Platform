@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNotifications } from '@/hooks/useNotifications';
 import { getApiErrorMessage } from '@/services/api';
 import {
   projectsApi,
@@ -15,6 +16,7 @@ type ProjectsResult = { data: Project[]; meta: PaginationMeta };
 type ProjectQuery = ProjectListParams & { page: number };
 
 export function useProjects(query: ProjectQuery) {
+  const notifications = useNotifications();
   const [result, setResult] = useState<ProjectsResult>({ data: [], meta: emptyMeta });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,11 @@ export function useProjects(query: ProjectQuery) {
         if (!cancelled) setResult(response);
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(requestError, 'Unable to load projects'));
+        if (!cancelled) {
+          const message = getApiErrorMessage(requestError, 'Unable to load projects');
+          setError(message);
+          notifications.error('Projects unavailable', message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -44,17 +50,22 @@ export function useProjects(query: ProjectQuery) {
     return () => {
       cancelled = true;
     };
-  }, [query.page, query.limit, query.search, query.status, reloadKey]);
+  }, [notifications, query.page, query.limit, query.search, query.status, reloadKey]);
 
-  async function runMutation(action: () => Promise<unknown>) {
+  async function runMutation(action: () => Promise<unknown>, successTitle: string) {
     setMutationLoading(true);
     setMutationError(null);
     try {
       await action();
       reload();
+      notifications.success(successTitle);
       return true;
     } catch (requestError) {
       setMutationError(getApiErrorMessage(requestError, 'Unable to update project'));
+      notifications.error(
+        'Project action failed',
+        getApiErrorMessage(requestError, 'Unable to update project'),
+      );
       return false;
     } finally {
       setMutationLoading(false);
@@ -70,14 +81,16 @@ export function useProjects(query: ProjectQuery) {
     clearMutationError: () => setMutationError(null),
     reload,
     createProject: (payload: CreateProjectPayload) =>
-      runMutation(() => projectsApi.create(payload)),
+      runMutation(() => projectsApi.create(payload), 'Project created'),
     updateProject: (projectId: string, payload: UpdateProjectPayload) =>
-      runMutation(() => projectsApi.update(projectId, payload)),
-    archiveProject: (projectId: string) => runMutation(() => projectsApi.archive(projectId)),
+      runMutation(() => projectsApi.update(projectId, payload), 'Project updated'),
+    archiveProject: (projectId: string) =>
+      runMutation(() => projectsApi.archive(projectId), 'Project archived'),
   };
 }
 
 export function useProject(projectId: string | undefined) {
+  const notifications = useNotifications();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +113,11 @@ export function useProject(projectId: string | undefined) {
         if (!cancelled) setProject(value);
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(requestError, 'Unable to load project'));
+        if (!cancelled) {
+          const message = getApiErrorMessage(requestError, 'Unable to load project');
+          setError(message);
+          notifications.error('Project unavailable', message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -108,17 +125,22 @@ export function useProject(projectId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [projectId, reloadKey]);
+  }, [notifications, projectId, reloadKey]);
 
-  async function runMutation(action: () => Promise<unknown>) {
+  async function runMutation(action: () => Promise<unknown>, successTitle: string) {
     setMutationLoading(true);
     setMutationError(null);
     try {
       await action();
       setReloadKey((key) => key + 1);
+      notifications.success(successTitle);
       return true;
     } catch (requestError) {
       setMutationError(getApiErrorMessage(requestError, 'Unable to update project'));
+      notifications.error(
+        'Project action failed',
+        getApiErrorMessage(requestError, 'Unable to update project'),
+      );
       return false;
     } finally {
       setMutationLoading(false);
@@ -133,7 +155,7 @@ export function useProject(projectId: string | undefined) {
     mutationError,
     retry: () => setReloadKey((key) => key + 1),
     updateProject: (payload: UpdateProjectPayload) =>
-      runMutation(() => projectsApi.update(projectId!, payload)),
-    archiveProject: () => runMutation(() => projectsApi.archive(projectId!)),
+      runMutation(() => projectsApi.update(projectId!, payload), 'Project updated'),
+    archiveProject: () => runMutation(() => projectsApi.archive(projectId!), 'Project archived'),
   };
 }

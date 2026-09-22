@@ -24,6 +24,7 @@ import {
   selectCurrentUser,
 } from '@/features/auth/auth.selectors';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useNotifications } from '@/hooks/useNotifications';
 
 type NavigationItem = {
   label: string;
@@ -46,6 +47,7 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const notifications = useNotifications();
   const currentUser = useAppSelector(selectCurrentUser);
   const authLoading = useAppSelector(selectAuthLoading);
   const canManageWorkspace = useAppSelector(selectCanManageWorkspace);
@@ -59,7 +61,9 @@ export function DashboardLayout() {
     }));
 
   async function handleLogout() {
-    await dispatch(logout());
+    const result = await dispatch(logout());
+    if (logout.fulfilled.match(result)) notifications.info('Signed out');
+    else notifications.error('Sign-out failed', 'Your local session was cleared.');
     navigate('/login', { replace: true });
   }
 

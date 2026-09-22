@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNotifications } from '@/hooks/useNotifications';
 import { getApiErrorMessage } from '@/services/api';
 import { projectsApi } from '@/services/projects.api';
 import {
@@ -26,6 +27,7 @@ async function fetchAllPages<T>(fetchPage: (page: number) => Promise<Page<T>>) {
 }
 
 export function useTasks(query: TaskQuery) {
+  const notifications = useNotifications();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>(emptyMeta);
@@ -100,7 +102,11 @@ export function useTasks(query: TaskQuery) {
         );
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(requestError, 'Unable to load tasks'));
+        if (!cancelled) {
+          const message = getApiErrorMessage(requestError, 'Unable to load tasks');
+          setError(message);
+          notifications.error('Tasks unavailable', message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -117,18 +123,24 @@ export function useTasks(query: TaskQuery) {
     query.search,
     query.status,
     query.assigneeId,
+    notifications,
     reloadKey,
   ]);
 
-  async function runMutation(action: () => Promise<unknown>) {
+  async function runMutation(action: () => Promise<unknown>, successTitle: string) {
     setMutationLoading(true);
     setMutationError(null);
     try {
       await action();
       reload();
+      notifications.success(successTitle);
       return true;
     } catch (requestError) {
       setMutationError(getApiErrorMessage(requestError, 'Unable to update task'));
+      notifications.error(
+        'Task action failed',
+        getApiErrorMessage(requestError, 'Unable to update task'),
+      );
       return false;
     } finally {
       setMutationLoading(false);
@@ -146,16 +158,17 @@ export function useTasks(query: TaskQuery) {
     clearMutationError: () => setMutationError(null),
     reload,
     createTask: (projectId: string, payload: CreateTaskPayload) =>
-      runMutation(() => tasksApi.create(projectId, payload)),
+      runMutation(() => tasksApi.create(projectId, payload), 'Task created'),
     updateTask: (taskId: string, payload: UpdateTaskPayload) =>
-      runMutation(() => tasksApi.update(taskId, payload)),
+      runMutation(() => tasksApi.update(taskId, payload), 'Task updated'),
     assignTask: (taskId: string, assigneeId: string | null) =>
-      runMutation(() => tasksApi.assign(taskId, assigneeId)),
-    archiveTask: (taskId: string) => runMutation(() => tasksApi.archive(taskId)),
+      runMutation(() => tasksApi.assign(taskId, assigneeId), 'Task assignment updated'),
+    archiveTask: (taskId: string) => runMutation(() => tasksApi.archive(taskId), 'Task archived'),
   };
 }
 
 export function useTask(taskId: string | undefined) {
+  const notifications = useNotifications();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +191,11 @@ export function useTask(taskId: string | undefined) {
         if (!cancelled) setTask(value);
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(requestError, 'Unable to load task'));
+        if (!cancelled) {
+          const message = getApiErrorMessage(requestError, 'Unable to load task');
+          setError(message);
+          notifications.error('Task unavailable', message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -186,17 +203,22 @@ export function useTask(taskId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, taskId]);
+  }, [notifications, reloadKey, taskId]);
 
-  async function runMutation(action: () => Promise<unknown>) {
+  async function runMutation(action: () => Promise<unknown>, successTitle: string) {
     setMutationLoading(true);
     setMutationError(null);
     try {
       await action();
       setReloadKey((key) => key + 1);
+      notifications.success(successTitle);
       return true;
     } catch (requestError) {
       setMutationError(getApiErrorMessage(requestError, 'Unable to update task'));
+      notifications.error(
+        'Task action failed',
+        getApiErrorMessage(requestError, 'Unable to update task'),
+      );
       return false;
     } finally {
       setMutationLoading(false);
@@ -211,9 +233,9 @@ export function useTask(taskId: string | undefined) {
     mutationError,
     retry: () => setReloadKey((key) => key + 1),
     updateTask: (payload: UpdateTaskPayload) =>
-      runMutation(() => tasksApi.update(taskId!, payload)),
+      runMutation(() => tasksApi.update(taskId!, payload), 'Task updated'),
     assignTask: (assigneeId: string | null) =>
-      runMutation(() => tasksApi.assign(taskId!, assigneeId)),
-    archiveTask: () => runMutation(() => tasksApi.archive(taskId!)),
+      runMutation(() => tasksApi.assign(taskId!, assigneeId), 'Task assignment updated'),
+    archiveTask: () => runMutation(() => tasksApi.archive(taskId!), 'Task archived'),
   };
 }

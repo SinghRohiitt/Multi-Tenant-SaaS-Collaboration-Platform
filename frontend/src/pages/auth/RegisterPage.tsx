@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Alert, Button, Input } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useNotifications } from '@/hooks/useNotifications';
 import { clearAuthError, register } from '@/features/auth/auth.slice';
 import { selectAuthError, selectAuthLoading } from '@/features/auth/auth.selectors';
 import { registerSchema, type RegisterFormValues } from '@/features/auth/auth.schemas';
@@ -12,6 +13,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const error = useAppSelector(selectAuthError);
   const loading = useAppSelector(selectAuthLoading);
+  const notifications = useNotifications();
   const {
     register: registerField,
     handleSubmit,
@@ -21,7 +23,12 @@ export function RegisterPage() {
   async function onSubmit(values: RegisterFormValues) {
     dispatch(clearAuthError());
     const result = await dispatch(register(values));
-    if (register.fulfilled.match(result)) navigate('/dashboard', { replace: true });
+    if (register.fulfilled.match(result)) {
+      notifications.success('Account created successfully');
+      navigate('/dashboard', { replace: true });
+    } else if (register.rejected.match(result)) {
+      notifications.error('Registration failed', result.payload ?? 'Unable to create account');
+    }
   }
 
   return (
