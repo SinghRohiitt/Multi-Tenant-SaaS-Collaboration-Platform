@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiError, ApiSuccess } from '@/types/api';
+import { getSafeApiErrorMessage } from './api-error';
 
 let accessToken: string | null = null;
 let refreshTokenGetter: (() => string | null) | null = null;
@@ -26,8 +27,7 @@ export function configureAuthInterceptors(options: {
 }
 
 export function getApiErrorMessage(error: unknown, fallback = 'Something went wrong') {
-  if (axios.isAxiosError<ApiError>(error)) return error.response?.data.message ?? fallback;
-  return fallback;
+  return getSafeApiErrorMessage(error, fallback);
 }
 
 export const api = axios.create({
