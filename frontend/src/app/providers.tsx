@@ -1,4 +1,4 @@
-import { useEffect, type PropsWithChildren } from 'react';
+import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { Provider } from 'react-redux';
 import { restoreAuth } from '@/features/auth/auth.slice';
 import { useAppDispatch } from '@/store/hooks';
@@ -8,8 +8,11 @@ import { useNotifications } from '@/hooks/useNotifications';
 function AuthBootstrap({ children }: PropsWithChildren) {
   const dispatch = useAppDispatch();
   const notifications = useNotifications();
+  const bootstrapped = useRef(false);
 
   useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
     dispatch(restoreAuth()).then((result) => {
       if (restoreAuth.rejected.match(result)) {
         notifications.warning(

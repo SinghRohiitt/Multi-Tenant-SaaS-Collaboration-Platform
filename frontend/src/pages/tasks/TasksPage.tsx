@@ -17,6 +17,7 @@ import type { TaskFormValues } from '@/features/tasks/task.schemas';
 import type { Task, TaskPriority, TaskStatus } from '@/types/api';
 import { useAppSelector } from '@/store/hooks';
 import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const statuses: Array<{ label: string; value: TaskStatus | '' }> = [
   { label: 'All statuses', value: '' },
@@ -41,6 +42,8 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchDraft, setSearchDraft] = useState(searchParams.get('search') ?? '');
   const [assigneeDraft, setAssigneeDraft] = useState(searchParams.get('assigneeId') ?? '');
+  const debouncedSearchDraft = useDebouncedValue(searchDraft);
+  const debouncedAssigneeDraft = useDebouncedValue(assigneeDraft);
   const [modal, setModal] = useState<'create' | Task | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Task | null>(null);
   const search = searchParams.get('search') ?? '';
@@ -81,25 +84,25 @@ export function TasksPage() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      const nextSearch = searchDraft.trim();
+      const nextSearch = debouncedSearchDraft.trim();
       if (nextSearch === search) return;
       const nextParams = new URLSearchParams(searchParams);
       if (nextSearch) nextParams.set('search', nextSearch);
       else nextParams.delete('search');
       nextParams.delete('page');
       setSearchParams(nextParams, { replace: true });
-    }, 350);
+    }, 0);
     return () => window.clearTimeout(timeout);
-  }, [search, searchDraft, searchParams, setSearchParams]);
+  }, [debouncedSearchDraft, search, searchParams, setSearchParams]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      const nextAssignee = assigneeDraft.trim();
+      const nextAssignee = debouncedAssigneeDraft.trim();
       if (nextAssignee === assigneeId) return;
       updateFilters({ assigneeId: nextAssignee || undefined });
-    }, 350);
+    }, 0);
     return () => window.clearTimeout(timeout);
-  }, [assigneeDraft, assigneeId]);
+  }, [assigneeId, debouncedAssigneeDraft]);
 
   function updateFilters(updates: Record<string, string | undefined>) {
     const nextParams = new URLSearchParams(searchParams);

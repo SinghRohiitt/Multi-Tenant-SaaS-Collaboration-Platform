@@ -1,5 +1,5 @@
 import { Plus, Search } from 'lucide-react';
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -16,6 +16,7 @@ import type { Project, ProjectStatus } from '@/types/api';
 import { ProjectFormModal, ProjectTable, useProjects } from '@/features/projects';
 import { useAppSelector } from '@/store/hooks';
 import { selectCanManageWorkspace } from '@/features/auth/auth.selectors';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const statuses: Array<{ label: string; value: ProjectStatus | '' }> = [
   { label: 'All statuses', value: '' },
@@ -33,7 +34,7 @@ export function ProjectsPage() {
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<'create' | Project | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Project | null>(null);
-  const deferredSearch = useDeferredValue(search);
+  const debouncedSearch = useDebouncedValue(search);
   const {
     data,
     meta,
@@ -49,11 +50,11 @@ export function ProjectsPage() {
   } = useProjects({
     page,
     limit: 20,
-    search: deferredSearch.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
     status,
   });
 
-  useEffect(() => setPage(1), [deferredSearch, status]);
+  useEffect(() => setPage(1), [debouncedSearch, status]);
 
   async function submitProject(payload: CreateProjectPayload | UpdateProjectPayload) {
     if (modal === 'create') return createProject(payload as CreateProjectPayload);
