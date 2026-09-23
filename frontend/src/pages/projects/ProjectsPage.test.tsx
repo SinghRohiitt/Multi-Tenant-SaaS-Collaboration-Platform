@@ -1,8 +1,7 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
+import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { authReducer, type AuthState } from '@/features/auth/auth.slice';
+import type { AuthState } from '@/features/auth/auth.slice';
+import { renderWithProviders } from '@/test/utils';
 import { ProjectsPage } from './ProjectsPage';
 
 const useProjectsMock = vi.hoisted(() => vi.fn());
@@ -32,15 +31,9 @@ function renderPage(role?: 'ADMIN' | 'MANAGER' | 'MEMBER') {
         refreshToken: 'token',
       }
     : undefined;
-  const store = configureStore({
-    reducer: { auth: authReducer },
+  renderWithProviders(<ProjectsPage />, {
     preloadedState: preloadedAuth ? { auth: preloadedAuth } : undefined,
   });
-  return render(
-    <Provider store={store}>
-      <ProjectsPage />
-    </Provider>,
-  );
 }
 
 const baseResult = {

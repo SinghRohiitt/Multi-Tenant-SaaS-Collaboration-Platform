@@ -1,9 +1,7 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom';
+import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { authReducer, type AuthState } from '@/features/auth/auth.slice';
+import type { AuthState } from '@/features/auth/auth.slice';
+import { renderWithProviders } from '@/test/utils';
 import { TasksPage } from './TasksPage';
 
 const useTasksMock = vi.hoisted(() => vi.fn());
@@ -32,17 +30,10 @@ function renderPage(role?: 'ADMIN' | 'MANAGER' | 'MEMBER') {
         refreshToken: 'token',
       }
     : undefined;
-  const store = configureStore({
-    reducer: { auth: authReducer },
+  renderWithProviders(<TasksPage />, {
     preloadedState: preloadedAuth ? { auth: preloadedAuth } : undefined,
+    initialEntries: ['/'],
   });
-  return render(
-    <Provider store={store}>
-      <MemoryRouter>
-        <TasksPage />
-      </MemoryRouter>
-    </Provider>,
-  );
 }
 
 const baseResult = {

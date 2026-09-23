@@ -1,10 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@testing-library/react';
-import { Provider } from 'react-redux';
+import { screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { authReducer, type AuthState } from '@/features/auth/auth.slice';
+import type { AuthState } from '@/features/auth/auth.slice';
+import { renderWithProviders } from '@/test/utils';
 import { LoginPage } from './LoginPage';
 
 const loginRequest = vi.hoisted(() => vi.fn());
@@ -40,19 +39,14 @@ function renderLogin() {
     error: null,
     refreshToken: null,
   };
-  const store = configureStore({
-    reducer: { auth: authReducer },
-    preloadedState: { auth: preloadedAuth },
-  });
-  render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={['/login']}>
-        <Routes>
-          <Route element={<LoginPage />} path="/login" />
-          <Route element={<p>Dashboard destination</p>} path="/dashboard" />
-        </Routes>
-      </MemoryRouter>
-    </Provider>,
+  const { store } = renderWithProviders(
+    <MemoryRouter initialEntries={['/login']}>
+      <Routes>
+        <Route element={<LoginPage />} path="/login" />
+        <Route element={<p>Dashboard destination</p>} path="/dashboard" />
+      </Routes>
+    </MemoryRouter>,
+    { preloadedState: { auth: preloadedAuth } },
   );
   return store;
 }

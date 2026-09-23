@@ -1,9 +1,8 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { Provider } from 'react-redux';
+import { screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { authReducer, type AuthState } from '@/features/auth/auth.slice';
+import type { AuthState } from '@/features/auth/auth.slice';
+import { renderWithProviders } from '@/test/utils';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RoleRoute } from './RoleRoute';
 
@@ -18,17 +17,15 @@ const user = {
 };
 
 function renderWithAuth(element: React.ReactNode, auth: AuthState, initialPath = '/private') {
-  const store = configureStore({ reducer: { auth: authReducer }, preloadedState: { auth } });
-  return render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <Routes>
-          <Route element={element} path="/private" />
-          <Route element={<p>Login page</p>} path="/login" />
-          <Route element={<p>Unauthorized page</p>} path="/unauthorized" />
-        </Routes>
-      </MemoryRouter>
-    </Provider>,
+  renderWithProviders(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route element={element} path="/private" />
+        <Route element={<p>Login page</p>} path="/login" />
+        <Route element={<p>Unauthorized page</p>} path="/unauthorized" />
+      </Routes>
+    </MemoryRouter>,
+    { preloadedState: { auth } },
   );
 }
 

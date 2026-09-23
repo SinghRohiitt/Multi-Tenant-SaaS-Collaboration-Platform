@@ -11,7 +11,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
@@ -29,21 +31,23 @@
   "devDependencies": {
     "@eslint/js": "latest",
     "@tailwindcss/vite": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
+    "@vitest/coverage-v8": "^5.0.1",
     "eslint": "latest",
     "eslint-config-prettier": "latest",
     "globals": "latest",
+    "jsdom": "latest",
     "prettier": "latest",
     "tailwindcss": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest",
-    "vitest": "latest",
-    "jsdom": "latest",
-    "@testing-library/jest-dom": "latest",
-    "@testing-library/react": "latest",
-    "@testing-library/user-event": "latest"
+    "vitest": "latest"
   }
 }
