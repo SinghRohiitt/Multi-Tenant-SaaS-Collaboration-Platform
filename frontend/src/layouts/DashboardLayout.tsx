@@ -9,20 +9,13 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
-  Users,
   X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Badge, Button, Dropdown, Skeleton } from '@/components/ui';
 import { logout } from '@/features/auth/auth.slice';
-import type { UserRole } from '@/features/auth/auth.types';
-import {
-  selectAuthLoading,
-  selectCanManageWorkspace,
-  selectCurrentUser,
-} from '@/features/auth/auth.selectors';
+import { selectAuthLoading, selectCurrentUser } from '@/features/auth/auth.selectors';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -30,15 +23,12 @@ type NavigationItem = {
   label: string;
   to: string;
   icon: typeof LayoutDashboard;
-  roles?: UserRole[];
 };
 
 const navigation: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', to: '/projects', icon: FolderKanban },
   { label: 'Tasks', to: '/tasks', icon: CheckSquare },
-  { label: 'Members', to: '/members', icon: Users, roles: ['ADMIN', 'MANAGER'] },
-  { label: 'Settings', to: '/settings', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ];
 
 export function DashboardLayout() {
@@ -50,8 +40,7 @@ export function DashboardLayout() {
   const notifications = useNotifications();
   const currentUser = useAppSelector(selectCurrentUser);
   const authLoading = useAppSelector(selectAuthLoading);
-  const canManageWorkspace = useAppSelector(selectCanManageWorkspace);
-  const visibleNavigation = navigation.filter((item) => !item.roles || canManageWorkspace);
+  const visibleNavigation = navigation;
   const breadcrumbs = location.pathname
     .split('/')
     .filter(Boolean)
@@ -244,12 +233,6 @@ export function DashboardLayout() {
                     {currentUser?.email ?? 'Profile'}
                   </p>
                 </div>
-                <NavLink
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
-                  to="/settings"
-                >
-                  <Settings aria-hidden="true" className="size-4" /> Settings
-                </NavLink>
                 <button
                   className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-800"
                   onClick={() => void handleLogout()}

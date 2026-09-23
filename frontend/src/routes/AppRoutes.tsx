@@ -3,11 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { RouteLoading } from '@/components/common/RouteLoading';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { ProtectedRoute } from './ProtectedRoute';
-import { RoleRoute } from './RoleRoute';
 
 const LoginPage = lazy(() =>
   import('@/pages/auth/LoginPage').then((module) => ({ default: module.LoginPage })),
@@ -56,12 +54,6 @@ export function AppRoutes() {
             <Route path="/projects/:projectId/members" element={<ProjectMembersPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/:taskId" element={<TaskDetailsPage />} />
-            <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/members">
-              <Route index element={<PlaceholderPage title="Members" />} />
-            </Route>
-            <Route element={<RoleRoute allowedRoles={['ADMIN', 'MANAGER']} />} path="/settings">
-              <Route index element={<PlaceholderPage title="Settings" />} />
-            </Route>
           </Route>
         </Route>
 

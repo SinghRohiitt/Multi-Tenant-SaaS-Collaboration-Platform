@@ -24,7 +24,6 @@ export function MemberTable({ members, canManage, onRemove }: MemberTableProps) 
       <TableHeader>
         <TableRow>
           <TableHead>Member</TableHead>
-          <TableHead>Role</TableHead>
           <TableHead>Status</TableHead>
           {canManage && (
             <TableHead>
@@ -44,11 +43,6 @@ export function MemberTable({ members, canManage, onRemove }: MemberTableProps) 
                   <p className="truncate text-xs text-slate-500">{member.user.email}</p>
                 </div>
               </div>
-            </TableCell>
-            <TableCell>
-              <Badge tone={member.role || member.user.role ? 'info' : 'neutral'}>
-                {member.role ?? member.user.role ?? 'Role unavailable'}
-              </Badge>
             </TableCell>
             <TableCell>
               <Badge tone={member.user.status === 'ACTIVE' ? 'success' : 'neutral'}>

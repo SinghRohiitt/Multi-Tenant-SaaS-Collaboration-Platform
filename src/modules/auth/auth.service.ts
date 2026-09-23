@@ -2,7 +2,7 @@ import { Prisma, TenantStatus, UserStatus } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
 import { assignRole } from '../../common/authorization/rbac.service.js';
-import { RoleName } from '../../common/authorization/rbac.js';
+import { isRoleName, RoleName } from '../../common/authorization/rbac.js';
 import { prisma } from '../../database/prisma.js';
 import { createDomainEvent, publishDomainEvent } from '../../events/index.js';
 import { comparePassword, hashPassword } from './password.js';
@@ -25,6 +25,14 @@ const publicUser = {
 } satisfies Prisma.UserSelect;
 
 type TokenUser = { id: string; tenantId: string };
+
+const rolesForUser = async (userId: string, tenantId: string) => {
+  const assignments = await prisma.userRole.findMany({
+    where: { userId, role: { tenantId } },
+    select: { role: { select: { name: true } } },
+  });
+  return assignments.map((assignment) => assignment.role.name).filter(isRoleName);
+};
 
 const createSession = async (user: TokenUser) => {
   const refreshToken = createRefreshToken();
@@ -61,7 +69,8 @@ export const register = async (input: RegisterInput) => {
     await publishDomainEvent(
       createDomainEvent('UserCreated', user.tenantId, user.id, { userId: user.id }),
     );
-    return { user, ...(await createSession(user)) };
+    const roles = await rolesForUser(user.id, user.tenantId);
+    return { user: { ...user, roles }, ...(await createSession(user)) };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       throw new AppError(409, 'An account with that email already exists in this organization');
@@ -92,7 +101,8 @@ export const login = async (input: LoginInput) => {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
-  return { user: safeUser, ...(await createSession(user)) };
+  const roles = await rolesForUser(user.id, user.tenantId);
+  return { user: { ...safeUser, roles }, ...(await createSession(user)) };
 };
 
 export const refresh = async (refreshToken: string) => {
@@ -129,8 +139,11 @@ export const logout = async (refreshToken: string): Promise<void> => {
   });
 };
 
-export const findActiveUser = (id: string, tenantId: string) =>
-  prisma.user.findFirst({
+export const findActiveUser = async (id: string, tenantId: string) => {
+  const user = await prisma.user.findFirst({
     where: { id, tenantId, status: UserStatus.ACTIVE, tenant: { status: TenantStatus.ACTIVE } },
     select: publicUser,
   });
+  if (!user) return null;
+  return { ...user, roles: await rolesForUser(user.id, user.tenantId) };
+};

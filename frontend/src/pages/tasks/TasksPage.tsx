@@ -1,4 +1,4 @@
-import { ListFilter, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -21,9 +21,13 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const statuses: Array<{ label: string; value: TaskStatus | '' }> = [
   { label: 'All statuses', value: '' },
+  { label: 'Backlog', value: 'BACKLOG' },
   { label: 'To do', value: 'TODO' },
   { label: 'In progress', value: 'IN_PROGRESS' },
+  { label: 'In review', value: 'IN_REVIEW' },
   { label: 'Done', value: 'DONE' },
+  { label: 'Cancelled', value: 'CANCELLED' },
+  { label: 'Archived', value: 'ARCHIVED' },
 ];
 const priorities: Array<{ label: string; value: TaskPriority | '' }> = [
   { label: 'All priorities', value: '' },
@@ -327,9 +331,6 @@ export function TasksPage() {
         open={archiveTarget !== null}
         title="Archive task"
       />
-      <div className="sr-only">
-        <ListFilter aria-hidden="true" />
-      </div>
     </div>
   );
 }

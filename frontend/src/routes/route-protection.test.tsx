@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import type { AuthState } from '@/features/auth/auth.slice';
 import { renderWithProviders } from '@/test/utils';
 import { ProtectedRoute } from './ProtectedRoute';
-import { RoleRoute } from './RoleRoute';
 
 const user = {
   id: 'user-1',
@@ -22,7 +21,6 @@ function renderWithAuth(element: React.ReactNode, auth: AuthState, initialPath =
       <Routes>
         <Route element={element} path="/private" />
         <Route element={<p>Login page</p>} path="/login" />
-        <Route element={<p>Unauthorized page</p>} path="/unauthorized" />
       </Routes>
     </MemoryRouter>,
     { preloadedState: { auth } },
@@ -69,25 +67,5 @@ describe('route protection', () => {
       authState({ currentUser: user, status: 'authenticated' }),
     );
     expect(screen.getByText('Private page')).toBeInTheDocument();
-  });
-
-  it('allows an authenticated user with an allowed role', () => {
-    renderWithAuth(
-      <RoleRoute allowedRoles={['MEMBER']}>
-        <p>Member page</p>
-      </RoleRoute>,
-      authState({ currentUser: { ...user, role: 'MEMBER' }, status: 'authenticated' }),
-    );
-    expect(screen.getByText('Member page')).toBeInTheDocument();
-  });
-
-  it('redirects an authenticated user without the required role', () => {
-    renderWithAuth(
-      <RoleRoute allowedRoles={['ADMIN']}>
-        <p>Admin page</p>
-      </RoleRoute>,
-      authState({ currentUser: { ...user, role: 'MEMBER' }, status: 'authenticated' }),
-    );
-    expect(screen.getByText('Unauthorized page')).toBeInTheDocument();
   });
 });

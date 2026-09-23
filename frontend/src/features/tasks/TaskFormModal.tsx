@@ -17,7 +17,15 @@ type TaskFormModalProps = {
   onSubmit: (payload: TaskFormValues) => Promise<boolean>;
 };
 
-const statuses = ['TODO', 'IN_PROGRESS', 'DONE'] as const;
+const statuses = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+  'CANCELLED',
+  'ARCHIVED',
+] as const;
 const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 export function TaskFormModal({
